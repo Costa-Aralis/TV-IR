@@ -1,0 +1,33 @@
+services:
+  server:
+    build:
+      # Repo root so the Dockerfile can pull in both server/ and web/.
+      context: .
+      dockerfile: server/Dockerfile
+    image: tv-ir-server:latest
+    container_name: tv-ir
+    restart: unless-stopped
+    networks:
+      lan:
+        ipv4_address: 172.31.250.31
+    ports:
+      - "80:8000"
+    volumes:
+      - ./server/config:/app/config:ro
+      - ./flipper-irdb:/app/flipper-irdb:ro
+      - tv-ir-data:/app/data
+    environment:
+      - TVIR_CONFIG=/app/config/tvs.yaml
+      - TVIR_IRDB=/app/flipper-irdb
+      - TVIR_DATA=/app/data
+      - TZ=America/New_York
+
+networks:
+  lan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+
+volumes:
+  tv-ir-data:

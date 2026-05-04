@@ -1,0 +1,41 @@
+# Secrets — never commit
+firmware/src/secrets.h
+server/config/tvs.yaml
+server/.env
+.env
+.env.local
+
+# Vendored Flipper IR database (clone separately, mounted as a volume)
+flipper-irdb/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+web/vite.config.d.ts
+web/vite.config.js
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+*.swp

@@ -1,0 +1,260 @@
+:root {
+  --bg: #0e1116;
+  --panel: #1a1f27;
+  --panel-2: #232a35;
+  --line: #2c3340;
+  --text: #e6edf3;
+  --muted: #8b97a8;
+  --accent: #3b82f6;
+  --accent-hot: #2563eb;
+  --power: #ef4444;
+  --power-hot: #dc2626;
+  --roku: #6f42c1;
+  --ok: #22c55e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app__header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.app__header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.app__grid {
+  flex: 1;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  align-content: start;
+  overflow: auto;
+}
+
+.app__loading,
+.app__error {
+  grid-column: 1 / -1;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.app__error {
+  color: var(--power);
+}
+
+/* ---- Tile ---- */
+.tile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.tile--roku {
+  border-color: var(--roku);
+}
+
+.tile__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.tile__slot {
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 2px 6px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.tile__name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tile__power {
+  background: var(--power);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.tile__power:active {
+  background: var(--power-hot);
+}
+
+.tile__power:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tile__presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.tile__preset {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px 0;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.tile__preset:active {
+  background: var(--accent-hot);
+  border-color: var(--accent);
+}
+
+.tile__preset:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tile__error {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--power);
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Scene bar ---- */
+.scenebar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.scenebar__group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--panel-2);
+  border-radius: 8px;
+}
+
+.scenebar__label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 8px;
+}
+
+.scenebar__btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 40px;
+}
+
+.scenebar__btn:active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.scenebar__btn--off:active {
+  background: var(--power);
+  border-color: var(--power);
+}
+
+.scenebar__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scenebar__error {
+  color: var(--power);
+  font-size: 13px;
+  flex-basis: 100%;
+}
+
+/* ---- Tablet sizing ---- */
+@media (min-width: 1024px) {
+  .app__grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    padding: 16px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .app__grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}

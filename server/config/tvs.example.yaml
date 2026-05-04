@@ -1,0 +1,41 @@
+# TV inventory — copy to tvs.yaml and fill in.
+#
+# `codes` is a path under flipper-irdb/. Match brand+model to a file in
+# https://github.com/Lucaslhm/Flipper-IRDB/tree/main/TVs.
+#
+# `preset_template` is the default channel-key sequence. The Thor RF modulator
+# numbers your 8 DirecTV boxes as 7.1 .. 7.8. Override per TV in `presets:` if
+# a TV's keypad uses different button names (see `key_map`).
+
+key_gap_ms: 200
+
+preset_template:
+  "1": ["7", "Dot", "1", "Enter"]
+  "2": ["7", "Dot", "2", "Enter"]
+  "3": ["7", "Dot", "3", "Enter"]
+  "4": ["7", "Dot", "4", "Enter"]
+  "5": ["7", "Dot", "5", "Enter"]
+  "6": ["7", "Dot", "6", "Enter"]
+  "7": ["7", "Dot", "7", "Enter"]
+  "8": ["7", "Dot", "8", "Enter"]
+
+tvs:
+  - id: tv01
+    name: "Bar Front 1"
+    slot: 1
+    type: ir
+    url: "http://tvir-a1b2c3.local"
+    codes: "TVs/Samsung/Samsung_BN59-01199F.ir"
+    # Most TVs that omit "Dot" use "Sub_Channel" — alias it here.
+    key_map:
+      Dot: "Sub_Channel"
+
+  - id: tv05
+    name: "Patio 1"
+    slot: 5
+    type: roku
+    url: "http://172.31.250.105:8060"
+    # Roku TVs accept the same logical preset; the Roku driver translates
+    # "Tv" → InputTuner, digits → Lit_*, "Enter" → Select.
+    presets:
+      "1": ["Tv", { delay_ms: 1500 }, "7", "Dot", "1", "Enter"]
