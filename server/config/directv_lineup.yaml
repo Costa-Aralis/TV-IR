@@ -115,15 +115,16 @@ music:
 
 # ---------------------------------------------------------------------------
 # Box → channel mapping (mirror of preset_channels in tvs.yaml).
-# Edit when you re-tune a receiver, then update preset_labels/preset_channels
-# in tvs.yaml to match.
+# At Rocky's the Thor modulator has 5 DirecTV H24 receivers + 3 non-DirecTV
+# inputs. Update when a receiver is re-tuned, then sync preset_labels and
+# preset_channels in tvs.yaml.
 # ---------------------------------------------------------------------------
 current_assignment:
-  box_1: { rf: "30.2", channel: "206", name: "ESPN" }
-  box_2: { rf: "31.2", channel: "219", name: "FS1" }
-  box_3: { rf: "32.2", channel: "245", name: "TNT" }
-  box_4: { rf: "33.2", channel: "640", name: "NBC Sports CHI" }
-  box_5: { rf: "34.2", channel: "648", name: "Marquee" }
-  box_6: { rf: "35.2", channel: "209", name: "ESPN2" }
-  box_7: { rf: "36.2", channel: "212", name: "NFL Network" }
-  box_8: { rf: "37.2", channel: "220", name: "Big Ten" }
+  box_1: { rf: "30.2", channel: "206", name: "ESPN",          source: "DirecTV H24 (b00B)" }
+  box_2: { rf: "31.2", channel: "219", name: "FS1",           source: "DirecTV H24 (6F21)" }
+  box_3: { rf: "32.2", channel: "245", name: "TNT",           source: "DirecTV H24 (1E39)" }
+  box_4: { rf: "33.2", channel: "640", name: "NBC Sports CHI",source: "DirecTV H24 (7867)" }
+  box_5: { rf: "34.2", channel: "648", name: "Marquee",       source: "DirecTV H24 (B3FD)" }
+  box_6: { rf: "35.2", channel: null,  name: "Loop TV",       source: "Loop player (HDMI → modulator input 6)" }
+  box_7: { rf: "36.2", channel: null,  name: "DJ A",          source: "DJ booth HDMI run 1" }
+  box_8: { rf: "37.2", channel: null,  name: "DJ B",          source: "DJ booth HDMI run 2" }

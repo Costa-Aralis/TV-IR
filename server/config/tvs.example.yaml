@@ -69,9 +69,11 @@ events:
       - { target: "all", power: "off" }
 
 # Cron-style schedule. Standard 5 fields: "minute hour dom month dow".
-schedule: []
-  # - { when: "0 11 * * *", action: open }
-  # - { when: "0 2  * * *", action: close }
+# Default = Rocky's bar hours: open at 3 PM, close at 4:30 AM the next day.
+# TZ is taken from the container's TZ env var (set in docker-compose.yml).
+schedule:
+  - { when: "0 15 * * *", action: open }
+  - { when: "30 4 * * *", action: close }
 
 tvs:
   - id: tv01

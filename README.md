@@ -51,9 +51,11 @@ support is retained as a fallback for any TV without network control.
 
 ## How it works at the bar
 
-- 8 DirecTV receivers feed a **Thor RF modulator** that broadcasts each
-  receiver as a different over-the-air channel on the coax that runs to
-  every TV. The 8 boxes show up as channels **30.2 → 37.2**.
+- A **Thor RF modulator** broadcasts 8 RF channels on the coax that runs
+  to every TV — channels **30.2 → 37.2**. Inputs:
+  - **30.2 – 34.2**: 5 × DirecTV H24 receivers (controllable from the tablet)
+  - **35.2**: Loop TV player (continuous video; not controllable)
+  - **36.2 – 37.2**: HDMI feeds from the DJ booth (DJ visuals)
 - Each TV is on its **TV / Antenna input**. Switching a TV from "Box 1" to
   "Box 3" means tuning that TV from `30.2` to `32.2` — i.e. sending the key
   sequence `3 2 . 2 ENTER`.
@@ -67,16 +69,16 @@ support is retained as a fallback for any TV without network control.
 
 The Chicago / 60070 starting lineup baked into the example config is:
 
-| Box | Default label  | DirecTV ch | RF channel |
-|-----|----------------|------------|------------|
-| 1   | ESPN           | 206        | 30.2       |
-| 2   | FS1            | 219        | 31.2       |
-| 3   | TNT            | 245        | 32.2       |
-| 4   | NBC Sports CHI | 640        | 33.2       |
-| 5   | Marquee        | 648        | 34.2       |
-| 6   | ESPN2          | 209        | 35.2       |
-| 7   | NFL Network    | 212        | 36.2       |
-| 8   | Big Ten        | 220        | 37.2       |
+| Box | Default label  | DirecTV ch | RF channel | Source                |
+|-----|----------------|------------|------------|-----------------------|
+| 1   | ESPN           | 206        | 30.2       | DirecTV H24           |
+| 2   | FS1            | 219        | 31.2       | DirecTV H24           |
+| 3   | TNT            | 245        | 32.2       | DirecTV H24           |
+| 4   | NBC Sports CHI | 640        | 33.2       | DirecTV H24           |
+| 5   | Marquee        | 648        | 34.2       | DirecTV H24           |
+| 6   | Loop TV        | —          | 35.2       | Loop player (HDMI)    |
+| 7   | DJ A           | —          | 36.2       | DJ booth HDMI run 1   |
+| 8   | DJ B           | —          | 37.2       | DJ booth HDMI run 2   |
 
 Edit `preset_labels` AND `preset_channels` in `server/config/tvs.yaml`
 when a DirecTV box gets re-tuned. The full Chicago / 60070 channel
@@ -325,13 +327,15 @@ events:
 
 Each action can set `power: on|off`, `preset: 1..8`, or both.
 
-**Auto-schedule** is a cron-style block that fires events automatically:
+**Auto-schedule** is a cron-style block that fires events automatically.
+Rocky's bar hours are 3:00 PM → 4:30 AM the next morning, so the default
+schedule looks like:
 
 ```yaml
 schedule:
-  - { when: "0 11 * * *", action: open }                       # 11:00 every day
-  - { when: "0 2  * * *", action: close }                      # 02:00 every day
-  - { when: "0 12 * * 0", action: event, event_id: "nfl_sunday" }
+  - { when: "0 15 * * *",  action: open }    # 3:00 PM every day → all on
+  - { when: "30 4 * * *",  action: close }   # 4:30 AM every day → all off
+  # - { when: "0 12 * * 0", action: event, event_id: "nfl_sunday" }
 ```
 
 Format is the standard 5-field cron (`minute hour dom month dow`); both
