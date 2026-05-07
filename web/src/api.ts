@@ -1,4 +1,4 @@
-import type { TV } from "./types";
+import type { SceneResult, TvListResponse } from "./types";
 
 async function call(path: string, init?: RequestInit): Promise<unknown> {
   const r = await fetch(path, {
@@ -13,7 +13,7 @@ async function call(path: string, init?: RequestInit): Promise<unknown> {
 }
 
 export const api = {
-  listTvs: () => call("/api/tvs") as Promise<TV[]>,
+  listTvs: () => call("/api/tvs") as Promise<TvListResponse>,
 
   power: (id: string, state: "on" | "off" | "toggle" = "toggle") =>
     call(`/api/tvs/${id}/power`, { method: "POST", body: JSON.stringify({ state }) }),
@@ -24,8 +24,8 @@ export const api = {
   key: (id: string, key: string) =>
     call(`/api/tvs/${id}/key`, { method: "POST", body: JSON.stringify({ key }) }),
 
-  allOff: () => call("/api/scenes/all-off", { method: "POST" }),
-  allOn: () => call("/api/scenes/all-on", { method: "POST" }),
+  open: () => call("/api/scenes/open", { method: "POST" }) as Promise<SceneResult>,
+  close: () => call("/api/scenes/close", { method: "POST" }) as Promise<SceneResult>,
   allToPreset: (n: number) =>
-    call(`/api/scenes/all-to-preset/${n}`, { method: "POST" }),
+    call(`/api/scenes/all-to-preset/${n}`, { method: "POST" }) as Promise<SceneResult>,
 };

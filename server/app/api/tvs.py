@@ -20,18 +20,20 @@ class KeyRequest(BaseModel):
 
 
 @router.get("")
-async def list_tvs(request: Request) -> list[dict]:
+async def list_tvs(request: Request) -> dict:
     registry = request.app.state.registry
-    return [
-        {
-            "id": tv.id,
-            "name": tv.name,
-            "slot": tv.slot,
-            "type": tv.type,
-            "presets": _preset_keys(registry, tv),
-        }
-        for tv in sorted(registry.tvs, key=lambda t: t.slot)
-    ]
+    return {
+        "presets": _presets_payload(registry),
+        "tvs": [
+            {
+                "id": tv.id,
+                "name": tv.name,
+                "slot": tv.slot,
+                "type": tv.type,
+            }
+            for tv in sorted(registry.tvs, key=lambda t: t.slot)
+        ],
+    }
 
 
 @router.get("/{tv_id}")
@@ -48,7 +50,7 @@ async def get_tv(tv_id: str, request: Request) -> dict:
         "type": tv.type,
         "url": tv.url,
         "codes": tv.codes,
-        "presets": _preset_keys(registry, tv),
+        "presets": _presets_payload(registry),
     }
 
 
@@ -70,9 +72,48 @@ async def key(tv_id: str, body: KeyRequest, request: Request) -> dict:
 
 
 # ---- internals ----
-def _preset_keys(registry, tv) -> list[int]:
-    keys = set((tv.presets or {}).keys()) | set(registry.preset_template.keys())
-    return sorted(int(k) for k in keys if k.isdigit())
+def _presets_payload(registry) -> list[dict]:
+    """Return the list of presets with channel labels and the RF digits used.
+
+    Preset numbers come from the union of preset_template and any per-TV
+    overrides. Labels fall back to "Box N" if not configured.
+    """
+    keys: set[str] = set(registry.preset_template.keys())
+    for tv in registry.tvs:
+        if tv.presets:
+            keys.update(tv.presets.keys())
+    nums = sorted(int(k) for k in keys if k.isdigit())
+    out = []
+    for n in nums:
+        key = str(n)
+        seq = registry.preset_template.get(key, [])
+        rf = _rf_from_sequence(seq)
+        out.append({
+            "num": n,
+            "label": registry.preset_labels.get(key, f"Box {n}"),
+            "rf": rf,
+        })
+    return out
+
+
+def _rf_from_sequence(seq) -> str | None:
+    """Reconstruct the RF channel ('30.2') from a digit sequence for display."""
+    digits: list[str] = []
+    saw_dot = False
+    for step in seq:
+        if isinstance(step, dict):
+            continue
+        if step in {"Enter", "Ok"}:
+            break
+        if step in {"Dot", "Dash"}:
+            digits.append(".")
+            saw_dot = True
+            continue
+        if step.isdigit():
+            digits.append(step)
+    if not digits:
+        return None
+    return "".join(digits) if saw_dot else "".join(digits)
 
 
 async def _dispatch(request: Request, action) -> dict:

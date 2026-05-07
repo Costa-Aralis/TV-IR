@@ -1,56 +1,76 @@
 import { useState } from "react";
-import type { TV } from "../types";
+import type { Preset, TV } from "../types";
 import { api } from "../api";
 
 interface Props {
   tv: TV;
+  presets: Preset[];
+  onAction: (msg: string) => void;
 }
 
-export function TvTile({ tv }: Props) {
+const TYPE_BADGE: Record<TV["type"], string> = {
+  vizio: "Vizio",
+  lg: "LG",
+  roku: "Roku",
+  androidtv: "Android",
+  firetv: "Fire TV",
+  ir: "IR",
+  tbd: "—",
+};
+
+export function TvTile({ tv, presets, onAction }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const disabled = tv.type === "tbd";
 
-  const run = async (label: string, action: () => Promise<unknown>) => {
+  const run = async (label: string, action: () => Promise<unknown>, toast: string) => {
+    if (disabled || busy) return;
     setBusy(label);
     setError(null);
     try {
       await action();
+      onAction(`${tv.name}: ${toast}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      onAction(`${tv.name}: ${msg}`);
     } finally {
       setBusy(null);
     }
   };
 
   return (
-    <div className={`tile ${tv.type === "roku" ? "tile--roku" : ""}`}>
+    <div className={`tile tile--${tv.type}`}>
       <header className="tile__header">
         <span className="tile__slot">{tv.slot}</span>
         <span className="tile__name">{tv.name}</span>
+        <span className="tile__badge">{TYPE_BADGE[tv.type]}</span>
       </header>
 
       <button
         className="tile__power"
-        disabled={busy !== null}
-        onClick={() => run("power", () => api.power(tv.id, "toggle"))}
+        disabled={disabled || busy !== null}
+        onClick={() => run("power", () => api.power(tv.id, "toggle"), "power")}
       >
         {busy === "power" ? "…" : "Power"}
       </button>
 
       <div className="tile__presets">
-        {tv.presets.map((n) => (
+        {presets.map((p) => (
           <button
-            key={n}
-            className="tile__preset"
-            disabled={busy !== null}
-            onClick={() => run(`preset-${n}`, () => api.preset(tv.id, n))}
+            key={p.num}
+            className="preset"
+            disabled={disabled || busy !== null}
+            onClick={() => run(`p${p.num}`, () => api.preset(tv.id, p.num), `→ ${p.label}`)}
+            title={p.rf ? `RF ${p.rf}` : undefined}
           >
-            {busy === `preset-${n}` ? "…" : n}
+            <span className="preset__label">{p.label}</span>
           </button>
         ))}
       </div>
 
       {error && <div className="tile__error" title={error}>!</div>}
+      {disabled && <div className="tile__overlay">TBD</div>}
     </div>
   );
 }

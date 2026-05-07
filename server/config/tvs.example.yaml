@@ -24,15 +24,18 @@ preset_template:
   "7": ["3", "6", "Dot", "2", "Enter"]   # 36.2  → Box 7
   "8": ["3", "7", "Dot", "2", "Enter"]   # 37.2  → Box 8
 
+# Box labels — what each DirecTV box is tuned to. Edit to match the bar.
+# The bartender sees the label on the tablet; the digit sequence above is
+# what's actually sent to switch the TV's RF channel.
 preset_labels:
-  "1": "30.2"
-  "2": "31.2"
-  "3": "32.2"
-  "4": "33.2"
-  "5": "34.2"
-  "6": "35.2"
-  "7": "36.2"
-  "8": "37.2"
+  "1": "ESPN"
+  "2": "FS1"
+  "3": "TNT"
+  "4": "NBC Sports CHI"
+  "5": "Marquee"
+  "6": "ESPN2"
+  "7": "NFL Network"
+  "8": "Big Ten"
 
 tvs:
   - id: tv01
