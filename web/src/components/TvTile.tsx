@@ -62,9 +62,14 @@ export function TvTile({ tv, presets, onAction }: Props) {
             className="preset"
             disabled={disabled || busy !== null}
             onClick={() => run(`p${p.num}`, () => api.preset(tv.id, p.num), `→ ${p.label}`)}
-            title={p.rf ? `RF ${p.rf}` : undefined}
+            title={[
+              p.channel ? `DirecTV ${p.channel}` : null,
+              p.rf ? `RF ${p.rf}` : null,
+              `Box ${p.num}`,
+            ].filter(Boolean).join(" · ")}
           >
             <span className="preset__label">{p.label}</span>
+            {p.channel && <span className="preset__num">{p.channel}</span>}
           </button>
         ))}
       </div>

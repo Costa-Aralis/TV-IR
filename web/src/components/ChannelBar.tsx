@@ -34,10 +34,17 @@ export function ChannelBar({ presets, onAction }: Props) {
             className="channel"
             disabled={busy !== null}
             onClick={() => run(p)}
-            title={p.rf ? `RF ${p.rf} (Box ${p.num})` : `Box ${p.num}`}
+            title={[
+              p.channel ? `DirecTV ${p.channel}` : null,
+              p.rf ? `RF ${p.rf}` : null,
+              `Box ${p.num}`,
+            ].filter(Boolean).join(" · ")}
           >
             <span className="channel__label">{p.label}</span>
-            <span className="channel__sub">Box {p.num}</span>
+            <span className="channel__sub">
+              Box {p.num}
+              {p.channel ? <span className="channel__num"> · Ch {p.channel}</span> : null}
+            </span>
           </button>
         ))}
       </div>

@@ -37,6 +37,20 @@ preset_labels:
   "7": "NFL Network"
   "8": "Big Ten"
 
+# DirecTV channel each box is currently tuned to. Shown beneath the label
+# on the tablet UI so the bartender can answer "what channel is FS1?"
+# without having to look it up. See directv_lineup.yaml for the full
+# Chicago/60070 channel reference.
+preset_channels:
+  "1": "206"     # ESPN
+  "2": "219"     # FS1
+  "3": "245"     # TNT
+  "4": "640"     # NBC Sports CHI
+  "5": "648"     # Marquee
+  "6": "209"     # ESPN2
+  "7": "212"     # NFL Network
+  "8": "220"     # Big Ten Network
+
 tvs:
   - id: tv01
     name: "Vizio (example)"

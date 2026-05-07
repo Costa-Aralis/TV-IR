@@ -196,8 +196,13 @@ button:not(:disabled):active { transform: scale(0.98); }
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 1.2px;
+  display: inline-flex;
+  gap: 0;
+  white-space: nowrap;
 }
-.channel:not(:disabled):active .channel__sub { color: rgba(0,0,0,.65); }
+.channel__num { color: var(--muted); }
+.channel:not(:disabled):active .channel__sub,
+.channel:not(:disabled):active .channel__num { color: rgba(0,0,0,.65); }
 
 /* ---- TV tile ---- */
 .tile {
@@ -287,6 +292,9 @@ button:not(:disabled):active { transform: scale(0.98); }
   border-color: var(--accent-hot);
   color: #1a1300;
 }
+.preset {
+  flex-direction: column;
+}
 .preset__label {
   font-size: 13px;
   font-weight: 700;
@@ -296,6 +304,14 @@ button:not(:disabled):active { transform: scale(0.98); }
   text-overflow: ellipsis;
   max-width: 100%;
 }
+.preset__num {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dim);
+  letter-spacing: 0.4px;
+  margin-top: 1px;
+}
+.preset:not(:disabled):active .preset__num { color: rgba(0,0,0,.65); }
 
 .tile__error {
   position: absolute;

@@ -1,0 +1,129 @@
+# DirecTV channel reference — Prospect Heights, IL (ZIP 60070, Chicago DMA)
+#
+# Use this when tuning the 8 DirecTV receivers feeding the Thor RF modulator.
+# After re-tuning a box, update `preset_labels` AND `preset_channels` in
+# tvs.yaml so the tablet shows the right info.
+#
+# Channel numbers are accurate as of late 2025 for DirecTV's standard
+# satellite lineup; they can change during periodic channel repacks.
+# Some require Sports Pack, Premier, or other tier add-ons — flagged below.
+# Verify against the receiver's on-screen guide before relying on it.
+
+# ---------------------------------------------------------------------------
+# Sports — the bread and butter of Rocky's
+# ---------------------------------------------------------------------------
+sports:
+  national:
+    - { ch: "206", name: "ESPN" }
+    - { ch: "207", name: "ESPNews" }
+    - { ch: "208", name: "ESPNU" }
+    - { ch: "209", name: "ESPN2" }
+    - { ch: "210", name: "ESPN Goal Line / Bases Loaded" }   # seasonal
+    - { ch: "212", name: "NFL Network" }
+    - { ch: "213", name: "MLB Network" }
+    - { ch: "215", name: "NHL Network" }
+    - { ch: "216", name: "NBA TV" }
+    - { ch: "217", name: "Tennis Channel" }
+    - { ch: "218", name: "Golf Channel" }
+    - { ch: "219", name: "FS1" }
+    - { ch: "220", name: "Big Ten Network", note: "BTN" }
+    - { ch: "221", name: "SEC Network" }
+    - { ch: "245", name: "TNT", note: "NBA / NCAA tournament" }
+    - { ch: "247", name: "TBS", note: "MLB / NCAA tournament" }
+    - { ch: "248", name: "truTV", note: "NCAA tournament" }
+    - { ch: "611", name: "FS2" }
+    - { ch: "612", name: "ACC Network" }
+    - { ch: "618", name: "Big Ten Plus", tier: "Sports Pack" }
+    - { ch: "623", name: "Olympic Channel" }
+  premium_packages:
+    - { ch: "212-1", name: "NFL RedZone", tier: "NFL Sunday Ticket" }
+    - { ch: "701-718", name: "NFL Sunday Ticket games", tier: "Sunday Ticket" }
+    - { ch: "719-768", name: "MLB Extra Innings", tier: "Extra Innings" }
+    - { ch: "773-794", name: "NHL Center Ice", tier: "Center Ice" }
+    - { ch: "795-826", name: "NBA League Pass", tier: "League Pass" }
+    - { ch: "611-621", name: "Soccer / MLS Direct Kick", tier: "MLS Direct Kick" }
+
+# ---------------------------------------------------------------------------
+# Regional sports networks (Chicago DMA)
+# ---------------------------------------------------------------------------
+regional_sports:
+  - { ch: "640", name: "NBC Sports Chicago", note: "Bulls, Blackhawks, White Sox" }
+  - { ch: "648", name: "Marquee Sports Network", note: "Chicago Cubs" }
+
+# ---------------------------------------------------------------------------
+# Local affiliates (Chicago) — over-the-air channel and DirecTV channel
+# ---------------------------------------------------------------------------
+local_affiliates:
+  - { ch: "2",  ota: "2.1",  call: "WBBM", network: "CBS",       name: "CBS 2 Chicago" }
+  - { ch: "5",  ota: "5.1",  call: "WMAQ", network: "NBC",       name: "NBC 5 Chicago" }
+  - { ch: "7",  ota: "7.1",  call: "WLS",  network: "ABC",       name: "ABC 7 Chicago" }
+  - { ch: "9",  ota: "9.1",  call: "WGN",  network: "Independent", name: "WGN 9" }
+  - { ch: "11", ota: "11.1", call: "WTTW", network: "PBS",       name: "WTTW PBS 11" }
+  - { ch: "26", ota: "26.1", call: "WCIU", network: "Independent", name: "The U / WCIU 26" }
+  - { ch: "32", ota: "32.1", call: "WFLD", network: "FOX",       name: "FOX 32 Chicago" }
+  - { ch: "38", ota: "38.1", call: "WCPX", network: "ION",       name: "ION Chicago" }
+  - { ch: "44", ota: "44.1", call: "WSNS", network: "Telemundo", name: "Telemundo Chicago" }
+  - { ch: "50", ota: "50.1", call: "WPWR", network: "MyNet",     name: "MyNetwork Chicago" }
+  - { ch: "62", ota: "62.1", call: "WJYS", network: "Independent" }
+
+# ---------------------------------------------------------------------------
+# News
+# ---------------------------------------------------------------------------
+news:
+  - { ch: "202", name: "CNN" }
+  - { ch: "204", name: "MSNBC" }
+  - { ch: "205", name: "Fox News" }
+  - { ch: "208", name: "Bloomberg TV" }
+  - { ch: "347", name: "BBC America" }
+  - { ch: "355", name: "CNBC" }
+  - { ch: "357", name: "Fox Business" }
+  - { ch: "358", name: "CNN International" }
+
+# ---------------------------------------------------------------------------
+# Entertainment — useful when no game is on
+# ---------------------------------------------------------------------------
+entertainment:
+  - { ch: "242", name: "USA" }
+  - { ch: "244", name: "Syfy" }
+  - { ch: "246", name: "TNT" }                  # duplicate of sports/245 but TNT is dual-listed historically
+  - { ch: "249", name: "TLC" }
+  - { ch: "254", name: "AMC" }
+  - { ch: "256", name: "FX" }
+  - { ch: "257", name: "FXX" }
+  - { ch: "258", name: "FXM" }
+  - { ch: "264", name: "Bravo" }
+  - { ch: "265", name: "E!" }
+  - { ch: "266", name: "Lifetime" }
+  - { ch: "267", name: "A&E" }
+  - { ch: "268", name: "History Channel" }
+  - { ch: "269", name: "FYI" }
+  - { ch: "278", name: "MTV" }
+  - { ch: "279", name: "VH1" }
+  - { ch: "281", name: "BET" }
+  - { ch: "282", name: "Comedy Central" }
+  - { ch: "289", name: "Paramount Network" }
+  - { ch: "297", name: "ABC Family / Freeform" }
+  - { ch: "299", name: "Cartoon Network / Adult Swim" }
+  - { ch: "304", name: "Animal Planet" }
+  - { ch: "305", name: "Discovery Channel" }
+
+# ---------------------------------------------------------------------------
+# Music (background-only)
+# ---------------------------------------------------------------------------
+music:
+  - { ch: "801-863", name: "DirecTV Music Choice", note: "no video; jukebox handles audio" }
+
+# ---------------------------------------------------------------------------
+# Box → channel mapping (mirror of preset_channels in tvs.yaml).
+# Edit when you re-tune a receiver, then update preset_labels/preset_channels
+# in tvs.yaml to match.
+# ---------------------------------------------------------------------------
+current_assignment:
+  box_1: { rf: "30.2", channel: "206", name: "ESPN" }
+  box_2: { rf: "31.2", channel: "219", name: "FS1" }
+  box_3: { rf: "32.2", channel: "245", name: "TNT" }
+  box_4: { rf: "33.2", channel: "640", name: "NBC Sports CHI" }
+  box_5: { rf: "34.2", channel: "648", name: "Marquee" }
+  box_6: { rf: "35.2", channel: "209", name: "ESPN2" }
+  box_7: { rf: "36.2", channel: "212", name: "NFL Network" }
+  box_8: { rf: "37.2", channel: "220", name: "Big Ten" }

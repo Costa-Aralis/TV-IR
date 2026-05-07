@@ -11,6 +11,7 @@ export interface Preset {
   num: number;
   label: string;
   rf: string | null;
+  channel: string | null;
 }
 
 export interface TV {

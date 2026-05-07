@@ -92,6 +92,7 @@ def _presets_payload(registry) -> list[dict]:
             "num": n,
             "label": registry.preset_labels.get(key, f"Box {n}"),
             "rf": rf,
+            "channel": registry.preset_channels.get(key),
         })
     return out
 

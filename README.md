@@ -59,19 +59,22 @@ support is retained as a fallback for any TV without network control.
 
 The Chicago / 60070 starting lineup baked into the example config is:
 
-| Box | Default label  | Notes |
-|-----|----------------|-------|
-| 1   | ESPN           | DirecTV 206 |
-| 2   | FS1            | DirecTV 219 |
-| 3   | TNT            | DirecTV 245 |
-| 4   | NBC Sports CHI | regional, varies by package |
-| 5   | Marquee        | Cubs network |
-| 6   | ESPN2          | DirecTV 209 |
-| 7   | NFL Network    | DirecTV 212 |
-| 8   | Big Ten        | DirecTV 220 |
+| Box | Default label  | DirecTV ch | RF channel |
+|-----|----------------|------------|------------|
+| 1   | ESPN           | 206        | 30.2       |
+| 2   | FS1            | 219        | 31.2       |
+| 3   | TNT            | 245        | 32.2       |
+| 4   | NBC Sports CHI | 640        | 33.2       |
+| 5   | Marquee        | 648        | 34.2       |
+| 6   | ESPN2          | 209        | 35.2       |
+| 7   | NFL Network    | 212        | 36.2       |
+| 8   | Big Ten        | 220        | 37.2       |
 
-Edit `preset_labels` in `server/config/tvs.yaml` to whatever each box is
-actually tuned to.
+Edit `preset_labels` AND `preset_channels` in `server/config/tvs.yaml`
+when a DirecTV box gets re-tuned. The full Chicago / 60070 channel
+reference (sports, locals, news, entertainment) is at
+[`server/config/directv_lineup.yaml`](server/config/directv_lineup.yaml)
+— flip through it to find what to put on each box.
 
 ---
 
@@ -356,7 +359,8 @@ TV-IR/
 │   ├── requirements.txt            fastapi, httpx, aiowebostv, adb-shell, …
 │   ├── config/
 │   │   ├── tvs.example.yaml        committed schema example
-│   │   └── tvs.yaml                gitignored — your real inventory
+│   │   ├── tvs.yaml                gitignored — your real inventory
+│   │   └── directv_lineup.yaml     Chicago/60070 DirecTV channel reference
 │   └── app/
 │       ├── main.py
 │       ├── config.py

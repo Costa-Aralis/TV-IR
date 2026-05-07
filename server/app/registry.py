@@ -35,6 +35,7 @@ class Registry(BaseModel):
     key_gap_ms: int = 200
     preset_template: dict[str, list[KeyStep]] = Field(default_factory=dict)
     preset_labels: dict[str, str] = Field(default_factory=dict)
+    preset_channels: dict[str, str] = Field(default_factory=dict)
     tvs: list[TV]
 
     def get(self, tv_id: str) -> TV:
