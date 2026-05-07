@@ -136,6 +136,13 @@ keeps the deploy small and the touch targets predictable.
 - **`components/ChannelBar.tsx`** — "All TVs to ___" buttons, one per box.
 - **`components/TvTile.tsx`** — per-TV power + 8 channel buttons.
 - **`styles.css`** — dark theme, sports-bar amber/red accents.
+- **`preview.html`** — fully static rendering of the production UI with
+  the 25 real TVs and the Chicago lineup baked in. Open it in any
+  browser to review design changes without spinning up the server:
+  ```bash
+  python3 -m http.server 8765 --directory web
+  # then visit http://localhost:8765/preview.html
+  ```
 
 The Vite build output is copied into the Python image during the Docker
 build, so production is a single container.
@@ -299,6 +306,37 @@ pairing expired) it's highlighted with a red `!` and the toast names it.
 
 ---
 
+## Updating the channel lineup
+
+Whenever someone re-tunes a DirecTV receiver at the rack, the labels and
+channel numbers on the tablet will be wrong until the inventory is
+updated. The fix is two YAML edits, no rebuild:
+
+1. Edit `server/config/tvs.yaml` and update both fields in lockstep:
+   ```yaml
+   preset_labels:
+     "1": "ESPN"             # ← what the bartender sees on the button
+   preset_channels:
+     "1": "206"              # ← DirecTV channel, shown beneath the label
+   ```
+2. Restart the server so the change is picked up:
+   ```bash
+   docker compose restart server
+   ```
+
+The full Chicago / 60070 channel reference lives at
+[`server/config/directv_lineup.yaml`](server/config/directv_lineup.yaml).
+It's organised by category (national sports, regional sports, locals,
+news, entertainment) plus a `current_assignment` block that mirrors what's
+in `tvs.yaml`. Use it to look up channel numbers when re-assigning a box;
+keep it in sync with `tvs.yaml` so the doc stays trustworthy.
+
+The RF channels (30.2 → 37.2) the Thor modulator broadcasts are wired
+into hardware and don't change — only the DirecTV channel each *box* is
+tuned to varies.
+
+---
+
 ## Adding a TV
 
 1. Find a free slot number in `server/config/tvs.yaml` (or just append).
@@ -334,6 +372,15 @@ All endpoints live under `/api`. Bodies are JSON.
 | POST   | `/api/scenes/all-on`              | alias for `open`                         |
 | POST   | `/api/scenes/all-off`             | alias for `close`                        |
 | POST   | `/api/scenes/all-to-preset/{n}`   | every TV to box N                        |
+
+Each preset returned by `/api/tvs` looks like:
+```json
+{ "num": 1, "label": "ESPN", "rf": "30.2", "channel": "206" }
+```
+- `num` — preset slot, 1..8
+- `label` — bartender-facing channel name (from `preset_labels`)
+- `rf` — RF channel the Thor modulator broadcasts (derived from `preset_template`)
+- `channel` — DirecTV channel the box is tuned to (from `preset_channels`)
 
 Scene endpoints return `{ok: bool, failed: { tv_id: error_message }}` so
 the UI can surface partial failures.
@@ -380,6 +427,7 @@ TV-IR/
 │   ├── package.json
 │   ├── index.html
 │   ├── vite.config.ts
+│   ├── preview.html                static UI preview, no build needed
 │   └── src/
 │       ├── App.tsx
 │       ├── api.ts
