@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from .codes.library import CodeLibrary
+from .drivers.android_tv import AdbClient, AdbError
 from .drivers.ir_node import IRNode, IRNodeError
+from .drivers.lg_webos import LgClient, LgError
 from .drivers.roku import RokuClient, RokuError
-from .registry import TV, Registry, KeyStep
+from .drivers.vizio import VizioClient, VizioError
+from .registry import TV, KeyStep, Pairings, Registry
 
 
 class DispatchError(RuntimeError):
@@ -15,23 +19,51 @@ class DispatchError(RuntimeError):
 
 
 class Dispatcher:
-    def __init__(self, registry: Registry, codes: CodeLibrary, *, timeout: float = 5.0) -> None:
+    def __init__(
+        self,
+        registry: Registry,
+        codes: CodeLibrary,
+        pairings: Pairings,
+        *,
+        adb_key_path: Path,
+        timeout: float = 5.0,
+    ) -> None:
         self._registry = registry
         self._codes = codes
+        self._pairings = pairings
+        self._adb_key_path = adb_key_path
         self._timeout = timeout
 
     # ---- Public API ----
     async def power(self, tv_id: str, state: str = "toggle") -> None:
         tv = self._registry.get(tv_id)
-        if tv.type == "roku":
-            client = RokuClient(tv.url, timeout=self._timeout)
-            mapping = {"on": "PowerOn", "off": "PowerOff", "toggle": "Power"}
-            try:
-                await client.keypress(mapping.get(state, "Power"))
-            except RokuError as exc:
-                raise DispatchError(str(exc)) from exc
+        if tv.type == "tbd":
+            raise DispatchError(f"{tv.id} is TBD")
+        if tv.type == "vizio":
+            key = {"on": "PowerOn", "off": "PowerOff", "toggle": "Power"}.get(state, "Power")
+            await self._send_logical(tv, key)
             return
-        # IR TVs almost always have a single Power toggle.
+        if tv.type == "lg":
+            if state == "off":
+                lg = self._lg(tv)
+                try:
+                    await lg.power_off()
+                finally:
+                    await lg.close()
+                return
+            # "on" requires Wake-on-LAN; not implemented Phase 1. Toggle button works
+            # while TV is on, no-op when off.
+            await self._send_logical(tv, "Power")
+            return
+        if tv.type == "androidtv" or tv.type == "firetv":
+            key = {"on": "PowerOn", "off": "PowerOff", "toggle": "Power"}.get(state, "Power")
+            await self._send_logical(tv, key)
+            return
+        if tv.type == "roku":
+            key = {"on": "PowerOn", "off": "PowerOff", "toggle": "Power"}.get(state, "Power")
+            await self._send_logical(tv, key)
+            return
+        # IR
         await self._send_logical(tv, "Power")
 
     async def key(self, tv_id: str, logical: str) -> None:
@@ -53,26 +85,48 @@ class Dispatcher:
 
     # ---- Internals ----
     async def _send_logical(self, tv: TV, logical: str) -> None:
-        # TV-level alias overrides (e.g. {"Enter": "OK"}).
         button = tv.key_map.get(logical, logical)
-
-        if tv.type == "roku":
-            client = RokuClient(tv.url, timeout=self._timeout)
-            try:
+        try:
+            if tv.type == "vizio":
+                client = VizioClient(
+                    tv.url,
+                    auth_token=self._pairings.get(tv.id).get("auth_token"),
+                    timeout=self._timeout,
+                )
                 await client.send_logical(button)
-            except RokuError as exc:
-                raise DispatchError(str(exc)) from exc
-            return
-
-        if not tv.codes:
-            raise DispatchError(f"TV {tv.id} has no codes file configured")
-        try:
-            command = self._codes.get(tv.codes, button)
-        except KeyError as exc:
+                return
+            if tv.type == "lg":
+                lg = self._lg(tv)
+                try:
+                    await lg.send_logical(button)
+                finally:
+                    await lg.close()
+                return
+            if tv.type in ("androidtv", "firetv"):
+                adb = self._adb(tv)
+                await adb.send_logical(button)
+                return
+            if tv.type == "roku":
+                roku = RokuClient(tv.url, timeout=self._timeout)
+                await roku.send_logical(button)
+                return
+            if tv.type == "ir":
+                if not tv.codes:
+                    raise DispatchError(f"{tv.id} has no codes file configured")
+                command = self._codes.get(tv.codes, button)
+                node = IRNode(tv.url, timeout=self._timeout)
+                await node.send(command)
+                return
+            if tv.type == "tbd":
+                raise DispatchError(f"{tv.id} is TBD")
+            raise DispatchError(f"unknown tv.type: {tv.type!r}")
+        except (VizioError, LgError, AdbError, RokuError, IRNodeError, KeyError) as exc:
             raise DispatchError(str(exc)) from exc
 
-        node = IRNode(tv.url, timeout=self._timeout)
-        try:
-            await node.send(command)
-        except IRNodeError as exc:
-            raise DispatchError(str(exc)) from exc
+    def _lg(self, tv: TV) -> LgClient:
+        host = tv.url.replace("ws://", "").replace("wss://", "").rstrip("/")
+        client_key = self._pairings.get(tv.id).get("client_key")
+        return LgClient(host, client_key=client_key, timeout=self._timeout)
+
+    def _adb(self, tv: TV) -> AdbClient:
+        return AdbClient(tv.url, self._adb_key_path, timeout=self._timeout)

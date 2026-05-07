@@ -1,6 +1,7 @@
 # Secrets — never commit
 firmware/src/secrets.h
 server/config/tvs.yaml
+server/data/
 server/.env
 .env
 .env.local

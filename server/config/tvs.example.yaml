@@ -1,11 +1,16 @@
-# TV inventory — copy to tvs.yaml and fill in.
+# TV inventory — copy to tvs.yaml and fill in real values.
 #
-# `codes` is a path under flipper-irdb/. Match brand+model to a file in
-# https://github.com/Lucaslhm/Flipper-IRDB/tree/main/TVs.
+# Auth tokens / client-keys / ADB keys are NOT stored here; they live in
+# pairings.json (gitignored, in the data volume), populated by `python -m
+# app.pair <tv_id>`.
 #
-# `preset_template` is the default channel-key sequence. The Thor RF modulator
-# numbers your 8 DirecTV boxes on channels 30.2 through 37.2. Override per TV
-# in `presets:` if a TV's keypad uses different button names (see `key_map`).
+# `url` format by type:
+#   vizio:     https://<ip>:7345        (or :9000 on older models)
+#   lg:        <ip>                     (driver picks ws/wss + port)
+#   roku:      http://<ip>:8060
+#   androidtv: <ip>[:5555]              (host:port for ADB)
+#   firetv:    <ip>[:5555]
+#   ir:        http://tvir-XXXXXX.local (ESP32 hostname or IP)
 
 key_gap_ms: 200
 
@@ -19,23 +24,43 @@ preset_template:
   "7": ["3", "6", "Dot", "2", "Enter"]   # 36.2  → Box 7
   "8": ["3", "7", "Dot", "2", "Enter"]   # 37.2  → Box 8
 
+preset_labels:
+  "1": "30.2"
+  "2": "31.2"
+  "3": "32.2"
+  "4": "33.2"
+  "5": "34.2"
+  "6": "35.2"
+  "7": "36.2"
+  "8": "37.2"
+
 tvs:
   - id: tv01
-    name: "Bar Front 1"
+    name: "Vizio (example)"
     slot: 1
-    type: ir
-    url: "http://tvir-a1b2c3.local"
-    codes: "TVs/Samsung/Samsung_BN59-01199F.ir"
-    # Most TVs that omit "Dot" use "Sub_Channel" — alias it here.
-    key_map:
-      Dot: "Sub_Channel"
+    type: vizio
+    url: "https://192.0.2.10:7345"
+
+  - id: tv02
+    name: "LG webOS (example)"
+    slot: 2
+    type: lg
+    url: "192.0.2.11"
+
+  - id: tv03
+    name: "Roku/TCL (example)"
+    slot: 3
+    type: roku
+    url: "http://192.0.2.12:8060"
+
+  - id: tv04
+    name: "Hisense Android TV (example)"
+    slot: 4
+    type: androidtv
+    url: "192.0.2.13:5555"
 
   - id: tv05
-    name: "Patio 1"
+    name: "Insignia Fire TV (example)"
     slot: 5
-    type: roku
-    url: "http://172.31.250.105:8060"
-    # Roku TVs accept the same logical preset; the Roku driver translates
-    # "Tv" → InputTuner, digits → Lit_*, "Enter" → Select.
-    presets:
-      "1": ["Tv", { delay_ms: 1500 }, "7", "Dot", "1", "Enter"]
+    type: firetv
+    url: "192.0.2.14:5555"
