@@ -34,10 +34,18 @@ support is retained as a fallback for any TV without network control.
 4. [Setup from scratch](#setup-from-scratch)
 5. [Per-TV pairing](#per-tv-pairing)
 6. [Daily operation (bartender)](#daily-operation-bartender)
-7. [Maintenance](#maintenance)
-8. [Adding a TV](#adding-a-tv)
-9. [API reference](#api-reference)
-10. [Files](#files)
+7. [Updating the channel lineup](#updating-the-channel-lineup)
+8. [Zones, events, and the schedule](#zones-events-and-the-schedule)
+9. [DirecTV receiver control](#directv-receiver-control)
+10. [Wake-on-LAN](#wake-on-lan)
+11. [Status monitoring](#status-monitoring)
+12. [PIN auth](#pin-auth)
+13. [PWA / kiosk install](#pwa--kiosk-install)
+14. [Backups](#backups)
+15. [Maintenance](#maintenance)
+16. [Adding a TV](#adding-a-tv)
+17. [API reference](#api-reference)
+18. [Files](#files)
 
 ---
 
@@ -289,6 +297,188 @@ pairing expired) it's highlighted with a red `!` and the toast names it.
 
 ---
 
+## Zones, events, and the schedule
+
+The 25 TVs are grouped into **zones** (Bar Front, Dining, Patio, Side
+Room) — set in `tvs.yaml` per TV. The tablet UI shows zone tabs above
+the grid; tapping a zone scopes the channel-bar buttons to just those
+TVs (`All TVs to ESPN` becomes `Patio to ESPN`).
+
+**Saved events** are multi-TV scenes you tap once to apply, defined under
+`events:` in `tvs.yaml`:
+
+```yaml
+events:
+  - id: "nfl_sunday"
+    name: "NFL Sunday"
+    description: "Patio to FS1, everything else ESPN"
+    actions:
+      - { target: "Patio",  preset: 2 }
+      - { target: "all",    preset: 1 }
+```
+
+`target` accepts:
+- `"all"` — every non-TBD TV
+- a zone name (e.g. `"Patio"`)
+- a single TV id (`"tv01"`)
+- a list of TV ids
+
+Each action can set `power: on|off`, `preset: 1..8`, or both.
+
+**Auto-schedule** is a cron-style block that fires events automatically:
+
+```yaml
+schedule:
+  - { when: "0 11 * * *", action: open }                       # 11:00 every day
+  - { when: "0 2  * * *", action: close }                      # 02:00 every day
+  - { when: "0 12 * * 0", action: event, event_id: "nfl_sunday" }
+```
+
+Format is the standard 5-field cron (`minute hour dom month dow`); both
+cron-style (Sun=0) and Python-style (Mon=0) day-of-week values are
+accepted. Timezone follows the container's `TZ` env var (defaults to
+`America/Chicago`). The scheduler runs in-process at minute granularity
+— no external cron needed.
+
+Actions:
+- `open` — every TV on
+- `close` — every TV off
+- `all_to_preset` (with `preset: N`) — every TV to box N
+- `event` (with `event_id: "..."`) — apply a saved event
+
+---
+
+## DirecTV receiver control
+
+The 8 DirecTV receivers themselves can be controlled from the tablet via
+the **Boxes** button in the header. Each receiver exposes an HTTP API on
+port 8080 once **External Access** is enabled (Settings → Whole-Home →
+External Device → **Allow**).
+
+Configure receiver hosts under `receivers:` in `tvs.yaml`:
+
+```yaml
+receivers:
+  - { num: 1, name: "DirecTV Box 1", host: "172.16.20.71", rf: "30.2" }
+```
+
+The Boxes panel lets the bartender:
+- Type a DirecTV channel number (e.g. `206` or `206.1`) and tap **Tune**
+  to retune that receiver in place — no walking to the rack.
+- (Future: send remote keys, see what's tuned.)
+
+The HTTP API exposes:
+
+| Method | Path                              | Purpose                             |
+|--------|-----------------------------------|-------------------------------------|
+| GET    | `/api/boxes`                      | list configured receivers           |
+| GET    | `/api/boxes/{n}/tuned`            | what box N is currently tuned to    |
+| POST   | `/api/boxes/{n}/tune?channel=NNN` | tune box N to channel NNN[.MM]      |
+| POST   | `/api/boxes/{n}/key/{key}`        | press a remote key (`POWER`, `GUIDE`, `MENU`, `UP`, `DOWN`, `ENTER`, `EXIT`, …) |
+
+---
+
+## Wake-on-LAN
+
+LG webOS TVs (and many Samsungs) drop their WiFi in standby, so a normal
+HTTPS / WebSocket call can't reach them. The server falls back to **WoL
+magic packets** for the `power on` action when a TV has a `mac:` field
+in `tvs.yaml`. Every TV in the bar is pre-populated with its MAC
+(captured during the inventory walk).
+
+This is what makes the **Open** shift button work: it sends `power:on`
+to every TV, which for the LGs means a UDP broadcast, and they wake.
+
+WoL prerequisites on the TV:
+- LG webOS: General → Mobile TV On → **Turn on via Wi-Fi: ON**
+- Samsung: General → Network → Expert Settings → **Power on with Mobile: ON**
+- Most others (Vizio, Roku, Android, Fire TV) keep the network up in
+  standby and don't need WoL — the dispatcher only uses it where the
+  protocol says it's required.
+
+---
+
+## Status monitoring
+
+The server runs a background **status monitor** that probes every TV
+every ~15 seconds via its native protocol (HTTP for Roku/Vizio, TCP
+connect for LG/ADB/IR). The result is exposed at:
+
+- `GET /api/tvs/status` — JSON map keyed by TV id
+- Embedded as `tv.status` on `/api/tvs` and `/api/tvs/{id}`
+
+In the UI, every tile gets a coloured **status dot** in the header:
+- green = reachable
+- red = unreachable (either offline or pairing/auth issue)
+- grey = no probe yet (warm-up)
+
+The tablet repolls status every 10s.
+
+---
+
+## PIN auth
+
+Set `TVIR_PIN=1234` (or any digit string) in `docker-compose.yml` to
+require a PIN to use the tablet UI. Read endpoints (`GET /api/tvs`,
+`/api/tvs/status`) remain open so the tablet can hydrate before login;
+all mutating endpoints (POST) require an authenticated session.
+
+```yaml
+environment:
+  - TVIR_PIN=1234
+```
+
+After `docker compose up -d --build`, the tablet shows a PIN gate on
+first load. The session cookie lasts 12 hours. Leave `TVIR_PIN` unset
+(or empty) to disable auth entirely.
+
+This is a friction control to keep customers from hitting **Close**, not
+a security boundary — anyone on the bar's WiFi can sniff the cookie.
+
+---
+
+## PWA / kiosk install
+
+The web app ships with a `manifest.webmanifest` and a tiny service worker.
+On the tablet:
+
+- **iPad / iOS Safari**: open `http://172.31.250.31/`, tap the share
+  sheet, **Add to Home Screen** → launches full-screen, no browser
+  chrome.
+- **Android / Chrome**: visit, tap the install prompt (or menu → **Add
+  to Home screen** / **Install app**).
+
+The service worker caches the app shell so the kiosk loads instantly and
+keeps working briefly if the LXC reboots — API calls always go to the
+network, so commands fail visibly when the server is down rather than
+silently no-op.
+
+---
+
+## Backups
+
+Pairings and the ADB key live in the `tv-ir-data` Docker volume. Losing
+it means re-pairing every Vizio (4) and LG (4) and re-accepting ADB on
+every Android/Fire TV (8) — tedious but recoverable.
+
+Manual backup from inside the container:
+```bash
+docker compose exec server python -m app.backup
+# writes /app/data/backups/tv-ir-data-YYYY-MM-DD.tgz
+```
+
+Cron on the LXC for daily off-volume backup:
+```cron
+0 4 * * *  docker run --rm \
+    -v tv-ir-data:/data \
+    -v /var/backups/tv-ir:/backup \
+    alpine tar czf /backup/tv-ir-data-$(date +\%F).tgz -C /data .
+```
+
+To restore: stop the container, untar into the volume, start.
+
+---
+
 ## Maintenance
 
 - **Restart server**: `docker compose restart server`
@@ -359,19 +549,30 @@ If the new TV isn't a smart TV, add it as `type: ir` and:
 
 All endpoints live under `/api`. Bodies are JSON.
 
-| Method | Path                              | Purpose                                  |
-|--------|-----------------------------------|------------------------------------------|
-| GET    | `/api/health`                     | liveness probe                           |
-| GET    | `/api/tvs`                        | `{ presets:[…], tvs:[…] }`               |
-| GET    | `/api/tvs/{id}`                   | single TV (with presets)                 |
-| POST   | `/api/tvs/{id}/power`             | body `{state: on \| off \| toggle}`      |
-| POST   | `/api/tvs/{id}/preset/{n}`        | switch one TV to box N (1..8)            |
-| POST   | `/api/tvs/{id}/key`               | body `{key: "Vol_up"}` etc.              |
-| POST   | `/api/scenes/open`                | every TV on                              |
-| POST   | `/api/scenes/close`               | every TV off                             |
-| POST   | `/api/scenes/all-on`              | alias for `open`                         |
-| POST   | `/api/scenes/all-off`             | alias for `close`                        |
-| POST   | `/api/scenes/all-to-preset/{n}`   | every TV to box N                        |
+| Method | Path                                            | Purpose                              |
+|--------|-------------------------------------------------|--------------------------------------|
+| GET    | `/api/health`                                   | liveness probe                       |
+| GET    | `/api/tvs`                                      | `{ presets, zones, tvs }`            |
+| GET    | `/api/tvs/{id}`                                 | single TV with status                |
+| GET    | `/api/tvs/status`                               | reachability map                     |
+| POST   | `/api/tvs/{id}/power`                           | body `{state: on \| off \| toggle}`  |
+| POST   | `/api/tvs/{id}/preset/{n}`                      | switch one TV to box N (1..8)        |
+| POST   | `/api/tvs/{id}/key`                             | body `{key: "Vol_up"}` etc.          |
+| POST   | `/api/scenes/open`                              | every TV on                          |
+| POST   | `/api/scenes/close`                             | every TV off                         |
+| POST   | `/api/scenes/all-on` / `all-off`                | aliases                              |
+| POST   | `/api/scenes/all-to-preset/{n}`                 | every TV to box N                    |
+| POST   | `/api/scenes/zone/{zone}/power?state=on\|off`   | power for one zone                   |
+| POST   | `/api/scenes/zone/{zone}/preset/{n}`            | one zone to box N                    |
+| GET    | `/api/scenes/events`                            | list saved events                    |
+| POST   | `/api/scenes/events/{id}/apply`                 | apply a saved event                  |
+| GET    | `/api/boxes`                                    | list DirecTV receivers               |
+| GET    | `/api/boxes/{n}/tuned`                          | what's tuned on box N                |
+| POST   | `/api/boxes/{n}/tune?channel=NNN`               | tune box N                           |
+| POST   | `/api/boxes/{n}/key/{key}`                      | remote keypress on box N             |
+| GET    | `/api/auth/status`                              | `{pin_required, authed}`             |
+| POST   | `/api/auth/login`                               | body `{pin}` → sets cookie           |
+| POST   | `/api/auth/logout`                              | clears cookie                        |
 
 Each preset returned by `/api/tvs` looks like:
 ```json

@@ -39,10 +39,21 @@ export function TvTile({ tv, presets, onAction }: Props) {
     }
   };
 
+  const dotClass = !tv.status
+    ? "dot dot--unknown"
+    : tv.status.reachable
+    ? "dot dot--ok"
+    : "dot dot--down";
+
   return (
     <div className={`tile tile--${tv.type}`}>
       <header className="tile__header">
         <span className="tile__slot">{tv.slot}</span>
+        <span className={dotClass} title={
+          !tv.status ? "no status yet" :
+          tv.status.reachable ? "reachable" :
+          tv.status.error ?? "unreachable"
+        } />
         <span className="tile__name">{tv.name}</span>
         <span className="tile__badge">{TYPE_BADGE[tv.type]}</span>
       </header>

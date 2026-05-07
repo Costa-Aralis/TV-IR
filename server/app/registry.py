@@ -26,9 +26,29 @@ class TV(BaseModel):
     type: TVType
     url: str  # base URL or host[:port] depending on type
     codes: str | None = None  # IR only: path under IRDB
+    mac: str | None = None    # for Wake-on-LAN ("AA:BB:CC:DD:EE:FF")
+    zone: str | None = None   # logical group e.g. "Bar Front", "Patio"
     key_map: dict[str, str] = Field(default_factory=dict)
     presets: dict[str, list[KeyStep]] | None = None
     key_gap_ms: int | None = None
+
+
+class EventAction(BaseModel):
+    """One step inside a saved event preset.
+
+    `target` is "all", a zone name, a single TV id, or a list of TV ids.
+    `power` and `preset` are independent: set whichever apply.
+    """
+    target: str | list[str]
+    power: Literal["on", "off"] | None = None
+    preset: int | None = None
+
+
+class Event(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    actions: list[EventAction]
 
 
 class Registry(BaseModel):
@@ -36,6 +56,9 @@ class Registry(BaseModel):
     preset_template: dict[str, list[KeyStep]] = Field(default_factory=dict)
     preset_labels: dict[str, str] = Field(default_factory=dict)
     preset_channels: dict[str, str] = Field(default_factory=dict)
+    receivers: list[dict] = Field(default_factory=list)
+    schedule: list[dict] = Field(default_factory=list)
+    events: list[Event] = Field(default_factory=list)
     tvs: list[TV]
 
     def get(self, tv_id: str) -> TV:

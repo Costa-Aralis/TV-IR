@@ -4,19 +4,23 @@ import type { Preset, SceneResult } from "../types";
 
 interface Props {
   presets: Preset[];
+  zone: string | null;
   onAction: (msg: string) => void;
 }
 
-export function ChannelBar({ presets, onAction }: Props) {
+export function ChannelBar({ presets, zone, onAction }: Props) {
   const [busy, setBusy] = useState<number | null>(null);
 
   const run = async (p: Preset) => {
     if (busy !== null) return;
     setBusy(p.num);
     try {
-      const r: SceneResult = await api.allToPreset(p.num);
+      const r: SceneResult = zone
+        ? await api.zoneToPreset(zone, p.num)
+        : await api.allToPreset(p.num);
       const failed = Object.keys(r.failed ?? {}).length;
-      onAction(failed ? `All → ${p.label}: ${failed} failed` : `All → ${p.label} ✓`);
+      const scope = zone ?? "All";
+      onAction(failed ? `${scope} → ${p.label}: ${failed} failed` : `${scope} → ${p.label} ✓`);
     } catch (e) {
       onAction(`Error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -26,7 +30,7 @@ export function ChannelBar({ presets, onAction }: Props) {
 
   return (
     <div className="channelbar">
-      <span className="channelbar__label">All TVs to</span>
+      <span className="channelbar__label">{zone ?? "All TVs"} to</span>
       <div className="channelbar__buttons">
         {presets.map((p) => (
           <button

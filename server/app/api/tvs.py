@@ -22,23 +22,44 @@ class KeyRequest(BaseModel):
 @router.get("")
 async def list_tvs(request: Request) -> dict:
     registry = request.app.state.registry
+    monitor = getattr(request.app.state, "status_monitor", None)
+    zones = sorted({tv.zone for tv in registry.tvs if tv.zone})
     return {
         "presets": _presets_payload(registry),
+        "zones": zones,
         "tvs": [
             {
                 "id": tv.id,
                 "name": tv.name,
                 "slot": tv.slot,
                 "type": tv.type,
+                "zone": tv.zone,
+                "status": _status_payload(monitor, tv.id),
             }
             for tv in sorted(registry.tvs, key=lambda t: t.slot)
         ],
     }
 
 
+@router.get("/status")
+async def all_status(request: Request) -> dict:
+    monitor = getattr(request.app.state, "status_monitor", None)
+    if monitor is None:
+        return {}
+    return {
+        tv_id: {
+            "reachable": s.reachable,
+            "last_check_ts": s.last_check_ts,
+            "error": s.last_error,
+        }
+        for tv_id, s in monitor.all().items()
+    }
+
+
 @router.get("/{tv_id}")
 async def get_tv(tv_id: str, request: Request) -> dict:
     registry = request.app.state.registry
+    monitor = getattr(request.app.state, "status_monitor", None)
     try:
         tv = registry.get(tv_id)
     except KeyError:
@@ -48,8 +69,11 @@ async def get_tv(tv_id: str, request: Request) -> dict:
         "name": tv.name,
         "slot": tv.slot,
         "type": tv.type,
+        "zone": tv.zone,
         "url": tv.url,
         "codes": tv.codes,
+        "mac": tv.mac,
+        "status": _status_payload(monitor, tv.id),
         "presets": _presets_payload(registry),
     }
 
@@ -72,6 +96,15 @@ async def key(tv_id: str, body: KeyRequest, request: Request) -> dict:
 
 
 # ---- internals ----
+def _status_payload(monitor, tv_id: str) -> dict | None:
+    if monitor is None:
+        return None
+    s = monitor.get(tv_id)
+    if s is None:
+        return None
+    return {"reachable": s.reachable, "last_check_ts": s.last_check_ts, "error": s.last_error}
+
+
 def _presets_payload(registry) -> list[dict]:
     """Return the list of presets with channel labels and the RF digits used.
 

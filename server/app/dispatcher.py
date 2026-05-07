@@ -11,6 +11,7 @@ from .drivers.ir_node import IRNode, IRNodeError
 from .drivers.lg_webos import LgClient, LgError
 from .drivers.roku import RokuClient, RokuError
 from .drivers.vizio import VizioClient, VizioError
+from .drivers import wol
 from .registry import TV, KeyStep, Pairings, Registry
 
 
@@ -51,8 +52,19 @@ class Dispatcher:
                 finally:
                     await lg.close()
                 return
-            # "on" requires Wake-on-LAN; not implemented Phase 1. Toggle button works
-            # while TV is on, no-op when off.
+            if state == "on":
+                # webOS drops WiFi in standby — magic packet is the only way in.
+                if tv.mac:
+                    try:
+                        wol.send(tv.mac)
+                    except wol.WolError as exc:
+                        raise DispatchError(f"wol: {exc}") from exc
+                else:
+                    raise DispatchError(
+                        f"{tv.id}: 'on' requires `mac:` in tvs.yaml for WoL"
+                    )
+                return
+            # toggle: sending POWER on the WS only works while TV is on.
             await self._send_logical(tv, "Power")
             return
         if tv.type == "androidtv" or tv.type == "firetv":

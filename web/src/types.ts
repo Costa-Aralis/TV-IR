@@ -14,19 +14,53 @@ export interface Preset {
   channel: string | null;
 }
 
+export interface TvStatus {
+  reachable: boolean;
+  last_check_ts: number;
+  error: string | null;
+}
+
 export interface TV {
   id: string;
   name: string;
   slot: number;
   type: TVType;
+  zone: string | null;
+  status: TvStatus | null;
 }
 
 export interface TvListResponse {
   presets: Preset[];
+  zones: string[];
   tvs: TV[];
 }
 
 export interface SceneResult {
   ok: boolean;
   failed: Record<string, string>;
+}
+
+export interface EventAction {
+  target: string | string[];
+  power?: "on" | "off";
+  preset?: number;
+}
+
+export interface SavedEvent {
+  id: string;
+  name: string;
+  description: string | null;
+  actions: EventAction[];
+}
+
+export interface Box {
+  num: number;
+  name: string | null;
+  host: string;
+  rf: string | null;
+}
+
+export interface AuthStatus {
+  pin_required: boolean;
+  authed: boolean;
 }

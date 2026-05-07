@@ -51,6 +51,28 @@ preset_channels:
   "7": "212"     # NFL Network
   "8": "220"     # Big Ten Network
 
+# DirecTV receiver hosts (port 8080 HTTP control).
+# Enable on each box: Settings → Whole-Home → External Device → Allow.
+receivers:
+  - { num: 1, name: "Box 1", host: "192.0.2.71", rf: "30.2" }
+  - { num: 2, name: "Box 2", host: "192.0.2.72", rf: "31.2" }
+
+# Saved multi-TV scenes.
+events:
+  - id: "open_default"
+    name: "Open: All on, default channel"
+    actions:
+      - { target: "all", power: "on", preset: 1 }
+  - id: "close_all"
+    name: "Close: All off"
+    actions:
+      - { target: "all", power: "off" }
+
+# Cron-style schedule. Standard 5 fields: "minute hour dom month dow".
+schedule: []
+  # - { when: "0 11 * * *", action: open }
+  # - { when: "0 2  * * *", action: close }
+
 tvs:
   - id: tv01
     name: "Vizio (example)"

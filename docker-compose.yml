@@ -20,7 +20,9 @@ services:
       - TVIR_CONFIG=/app/config/tvs.yaml
       - TVIR_IRDB=/app/flipper-irdb
       - TVIR_DATA=/app/data
-      - TZ=America/New_York
+      # Set a 4-digit staff PIN to gate the tablet UI; unset to disable.
+      # - TVIR_PIN=1234
+      - TZ=America/Chicago
 
 networks:
   lan:
