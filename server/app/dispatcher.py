@@ -84,6 +84,17 @@ class Dispatcher:
 
     async def preset(self, tv_id: str, preset_num: int) -> None:
         tv = self._registry.get(tv_id)
+
+        # Roku TVs need to be on the Live TV input before digit keys mean
+        # anything — otherwise the digits get eaten as menu navigation.
+        if tv.type == "roku":
+            client = RokuClient(tv.url, timeout=self._timeout)
+            try:
+                await client.keypress("InputTuner")
+            except RokuError:
+                pass  # if it fails, the digit sequence will surface the issue
+            await asyncio.sleep(1.0)
+
         sequence = self._registry.preset_sequence(tv, preset_num)
         gap = self._registry.gap_ms(tv) / 1000.0
         for step in sequence:
