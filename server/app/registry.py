@@ -78,6 +78,23 @@ class Registry(BaseModel):
     def gap_ms(self, tv: TV) -> int:
         return tv.key_gap_ms if tv.key_gap_ms is not None else self.key_gap_ms
 
+    def preset_rf_channel(self, preset_num: int) -> str | None:
+        """Derive the RF channel ('30.2') from the preset template digit sequence."""
+        seq = self.preset_template.get(str(preset_num))
+        if not seq:
+            return None
+        digits: list[str] = []
+        for step in seq:
+            if isinstance(step, dict):
+                continue
+            if step in ("Enter", "Ok"):
+                break
+            if step in ("Dot", "Dash"):
+                digits.append(".")
+            elif isinstance(step, str) and step.isdigit():
+                digits.append(step)
+        return "".join(digits) if digits else None
+
 
 def load(path: Path) -> Registry:
     with path.open("r", encoding="utf-8") as fh:
