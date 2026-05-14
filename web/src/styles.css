@@ -109,7 +109,7 @@ button:not(:disabled):active { transform: scale(0.98); }
   padding: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   align-content: start;
 }
 
@@ -273,7 +273,7 @@ button:not(:disabled):active { transform: scale(0.98); }
 
 .tile__presets {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 4px;
 }
 .preset {
@@ -281,8 +281,8 @@ button:not(:disabled):active { transform: scale(0.98); }
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 5px;
-  padding: 6px 2px;
-  min-height: 36px;
+  padding: 7px 4px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -608,12 +608,12 @@ button:not(:disabled):active { transform: scale(0.98); }
 
 /* ---- Tablet sizing ---- */
 @media (min-width: 1024px) {
-  .app__grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; padding: 10px; }
+  .app__grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; padding: 12px; }
   .app__brand { font-size: 20px; }
 }
 @media (min-width: 1366px) {
-  .app__grid { grid-template-columns: repeat(7, 1fr); }
+  .app__grid { grid-template-columns: repeat(6, 1fr); }
 }
 @media (min-width: 1600px) {
-  .app__grid { grid-template-columns: repeat(8, 1fr); }
+  .app__grid { grid-template-columns: repeat(7, 1fr); }
 }
