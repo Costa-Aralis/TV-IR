@@ -28,9 +28,9 @@ ENV TVIR_CONFIG=/app/config/tvs.yaml \
     TVIR_DATA=/app/data \
     TVIR_STATIC=/app/static
 
-EXPOSE 8000
+EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD python -c "import urllib.request,sys; \
-sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=2).status==200 else 1)"
+sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:80/api/health',timeout=2).status==200 else 1)"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
