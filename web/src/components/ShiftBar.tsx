@@ -21,7 +21,7 @@ export function ShiftBar({ onAction }: Props) {
     setBusy(which);
     try {
       const r = which === "open" ? await api.open() : await api.close();
-      onAction(summarise(which === "open" ? "Open" : "Close", r));
+      onAction(summarise(which === "open" ? "All On" : "All Off", r));
     } catch (e) {
       onAction(`Error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -36,14 +36,14 @@ export function ShiftBar({ onAction }: Props) {
         disabled={busy !== null}
         onClick={() => run("open")}
       >
-        {busy === "open" ? "…" : "Open"}
+        {busy === "open" ? "…" : "All On"}
       </button>
       <button
         className="shift shift--close"
         disabled={busy !== null}
         onClick={() => run("close")}
       >
-        {busy === "close" ? "…" : "Close"}
+        {busy === "close" ? "…" : "All Off"}
       </button>
     </div>
   );
