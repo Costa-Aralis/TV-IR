@@ -7,11 +7,10 @@ services:
     image: tv-ir-server:latest
     container_name: tv-ir
     restart: unless-stopped
-    networks:
-      lan:
-        ipv4_address: 172.31.250.31
-    ports:
-      - "80:8000"
+    # Host networking so the container can reach the TV + DirecTV VLANs
+    # directly through the LXC's interfaces. No NAT, no port-mapping headaches.
+    # The server listens on every LXC IP at port 8000.
+    network_mode: host
     volumes:
       - ./server/config:/app/config:ro
       - ./flipper-irdb:/app/flipper-irdb:ro
@@ -23,13 +22,6 @@ services:
       # Set a 4-digit staff PIN to gate the tablet UI; unset to disable.
       # - TVIR_PIN=1234
       - TZ=America/Chicago
-
-networks:
-  lan:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.31.250.0/24
 
 volumes:
   tv-ir-data:
