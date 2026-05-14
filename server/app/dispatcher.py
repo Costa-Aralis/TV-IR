@@ -84,30 +84,6 @@ class Dispatcher:
 
     async def preset(self, tv_id: str, preset_num: int) -> None:
         tv = self._registry.get(tv_id)
-
-        # Roku TVs: tune atomically via the live-TV input app. Works whether the
-        # TV was on the Roku home screen, a streaming app, or already on TV — and
-        # avoids the "digits sent to home screen do random things" problem.
-        if tv.type == "roku":
-            rf = self._registry.preset_rf_channel(preset_num)
-            if rf:
-                client = RokuClient(tv.url, timeout=self._timeout)
-                try:
-                    await client.tune(rf)
-                except RokuError as exc:
-                    raise DispatchError(str(exc)) from exc
-                return
-            # fall through to digit-key fallback if no RF derivable
-
-        # Android TV / Fire TV: digit keys on the home screen do nothing; switch
-        # to the antenna input first.
-        if tv.type in ("androidtv", "firetv"):
-            try:
-                await self._send_logical(tv, "Tv")
-            except DispatchError:
-                pass  # not fatal — proceed with digits regardless
-            await asyncio.sleep(1.2)
-
         sequence = self._registry.preset_sequence(tv, preset_num)
         gap = self._registry.gap_ms(tv) / 1000.0
         for step in sequence:
