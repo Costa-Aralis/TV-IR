@@ -92,11 +92,23 @@ class Dispatcher:
             try:
                 await client.keypress("InputTuner")
             except RokuError:
-                pass  # if it fails, the digit sequence will surface the issue
+                pass
             await asyncio.sleep(1.0)
 
         sequence = self._registry.preset_sequence(tv, preset_num)
         gap = self._registry.gap_ms(tv) / 1000.0
+
+        # LG webOS: one persistent WebSocket for the whole sequence. Reconnect
+        # per key was costing ~500 ms each AND racing keys out of order.
+        if tv.type == "lg":
+            lg = self._lg(tv)
+            try:
+                async with lg:
+                    await lg.send_sequence(sequence, gap, alias_map=tv.key_map)
+            except LgError as exc:
+                raise DispatchError(str(exc)) from exc
+            return
+
         for step in sequence:
             if isinstance(step, dict):
                 delay = step.get("delay_ms")

@@ -52,7 +52,7 @@ class Event(BaseModel):
 
 
 class Registry(BaseModel):
-    key_gap_ms: int = 200
+    key_gap_ms: int = 80
     preset_template: dict[str, list[KeyStep]] = Field(default_factory=dict)
     preset_labels: dict[str, str] = Field(default_factory=dict)
     preset_channels: dict[str, str] = Field(default_factory=dict)
