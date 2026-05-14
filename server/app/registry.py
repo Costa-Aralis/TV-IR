@@ -118,10 +118,20 @@ class Pairings:
         self._load()
 
     def _load(self) -> None:
-        if self._path.exists():
+        if not self._path.exists():
+            return
+        try:
             self._data = json.loads(self._path.read_text())
+        except (json.JSONDecodeError, OSError):
+            # If the file is mid-write or corrupt, keep our current in-memory
+            # data and try again next time.
+            pass
 
     def get(self, tv_id: str) -> dict[str, Any]:
+        # Always re-read from disk — the pair CLI runs as a separate process
+        # and updates the file out-of-band; the server's in-memory cache would
+        # otherwise stay stale until restart.
+        self._load()
         return self._data.get(tv_id, {})
 
     def set(self, tv_id: str, **fields: Any) -> None:
