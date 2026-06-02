@@ -45,26 +45,27 @@ export function TvTile({ tv, presets, onAction }: Props) {
     ? "dot dot--ok"
     : "dot dot--down";
 
+  // Strip the brand/model prefix from "TV01 Vizio V756x-J03" → "TV01" for a
+  // calmer tile. The full name lives in the tooltip.
+  const shortName = tv.name.match(/^(TV\d+)/)?.[1] ?? tv.name;
+
   return (
-    <div className={`tile tile--${tv.type}`}>
+    <div className={`tile tile--${tv.type}`} title={`${tv.name} · ${TYPE_BADGE[tv.type]}`}>
       <header className="tile__header">
-        <span className="tile__slot">{tv.slot}</span>
         <span className={dotClass} title={
           !tv.status ? "no status yet" :
           tv.status.reachable ? "reachable" :
           tv.status.error ?? "unreachable"
         } />
-        <span className="tile__name">{tv.name}</span>
-        <span className="tile__badge">{TYPE_BADGE[tv.type]}</span>
+        <span className="tile__name">{shortName}</span>
+        <button
+          className="tile__power"
+          disabled={disabled || busy !== null}
+          onClick={(e) => { e.stopPropagation(); run("power", () => api.power(tv.id, "toggle"), "power"); }}
+        >
+          {busy === "power" ? "…" : "⏻"}
+        </button>
       </header>
-
-      <button
-        className="tile__power"
-        disabled={disabled || busy !== null}
-        onClick={() => run("power", () => api.power(tv.id, "toggle"), "power")}
-      >
-        {busy === "power" ? "…" : "Power"}
-      </button>
 
       <div className="tile__presets">
         {presets.map((p) => {

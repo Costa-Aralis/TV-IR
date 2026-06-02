@@ -4,7 +4,7 @@ import type { AuthStatus, Preset, TV, TvListResponse } from "./types";
 import { TvTile } from "./components/TvTile";
 import { ShiftBar } from "./components/ShiftBar";
 import { ZoneTabs } from "./components/ZoneTabs";
-import { EventBar } from "./components/EventBar";
+import { EventPanel } from "./components/EventPanel";
 import { BoxPanel } from "./components/BoxPanel";
 import { LoginGate } from "./components/LoginGate";
 
@@ -17,6 +17,7 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [zone, setZone] = useState<string | null>(null);
   const [showBoxes, setShowBoxes] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
 
   // ---- auth check on load ----
   useEffect(() => {
@@ -104,11 +105,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <div className="app__title">
-          <span className="app__brand">Rocky's American Grill</span>
-          <span className="app__subtitle">TV Control</span>
-        </div>
+        <span className="app__brand">Rocky's American Grill</span>
         <div className="app__headeractions">
+          <button className="boxbtn" onClick={() => setShowEvents(true)}>Scenes</button>
           <button className="boxbtn" onClick={() => setShowBoxes(true)}>Boxes</button>
           <ShiftBar onAction={flash} />
         </div>
@@ -117,8 +116,6 @@ export default function App() {
       {zones.length > 0 && (
         <ZoneTabs zones={zones} active={zone} onChange={setZone} />
       )}
-
-      <EventBar onAction={flash} />
 
       <main className="app__grid">
         {error && <div className="app__error">Failed to load: {error}</div>}
@@ -129,6 +126,7 @@ export default function App() {
       </main>
 
       {showBoxes && <BoxPanel onAction={flash} onClose={() => setShowBoxes(false)} />}
+      {showEvents && <EventPanel onAction={flash} onClose={() => setShowEvents(false)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

@@ -85,7 +85,6 @@ button:not(:disabled):active { transform: scale(0.98); }
   z-index: 10;
 }
 
-.app__title { display: flex; flex-direction: column; line-height: 1.1; }
 .app__brand {
   font-size: 18px;
   font-weight: 800;
@@ -94,14 +93,6 @@ button:not(:disabled):active { transform: scale(0.98); }
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-}
-.app__subtitle {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1.4px;
-  margin-top: 1px;
 }
 
 .app__grid {
@@ -209,7 +200,7 @@ button:not(:disabled):active { transform: scale(0.98); }
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 6px 7px 7px;
+  padding: 7px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -221,55 +212,33 @@ button:not(:disabled):active { transform: scale(0.98); }
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 6px;
-}
-.tile__slot {
-  background: var(--surface-3);
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 800;
-  border-radius: 4px;
-  padding: 2px 5px;
-  min-width: 22px;
-  text-align: center;
-  letter-spacing: 0.4px;
+  gap: 8px;
 }
 .tile__name {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: 0.3px;
 }
-.tile__badge {
-  font-size: 8px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  padding: 2px 5px;
-  border-radius: 3px;
-  color: white;
-}
-.tile--vizio    .tile__badge { background: var(--vizio); }
-.tile--lg       .tile__badge { background: var(--lg); }
-.tile--roku     .tile__badge { background: var(--roku); }
-.tile--androidtv .tile__badge { background: var(--android); }
-.tile--firetv   .tile__badge { background: var(--firetv); }
-.tile--ir       .tile__badge { background: var(--ir); }
-.tile--tbd      .tile__badge { background: var(--tbd); }
-
 .tile__power {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tile__power:not(:disabled):active {
   background: var(--accent-2);
   color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 7px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 1.3px;
-  text-transform: uppercase;
 }
-.tile__power:not(:disabled):active { background: var(--accent-2h); }
 
 .tile__presets {
   display: grid;
@@ -542,6 +511,28 @@ button:not(:disabled):active { transform: scale(0.98); }
   letter-spacing: 1px;
 }
 .boxrow__tune:disabled { background: var(--surface-3); color: var(--muted); }
+
+/* ---- Scene list (in the Scenes panel) ---- */
+.scene {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  text-align: left;
+}
+.scene:not(:disabled):active {
+  background: var(--accent);
+  border-color: var(--accent-hot);
+  color: #1a1300;
+}
+.scene__name { font-size: 15px; font-weight: 800; letter-spacing: 0.3px; }
+.scene__desc { font-size: 12px; color: var(--muted); font-weight: 500; }
+.scene:not(:disabled):active .scene__desc { color: rgba(0,0,0,.65); }
 
 /* ---- Login gate ---- */
 .login {
