@@ -3,7 +3,6 @@ import { api } from "./api";
 import type { AuthStatus, Preset, TV, TvListResponse } from "./types";
 import { TvTile } from "./components/TvTile";
 import { ShiftBar } from "./components/ShiftBar";
-import { ChannelBar } from "./components/ChannelBar";
 import { ZoneTabs } from "./components/ZoneTabs";
 import { EventBar } from "./components/EventBar";
 import { BoxPanel } from "./components/BoxPanel";
@@ -100,8 +99,6 @@ export default function App() {
           <ShiftBar onAction={flash} />
         </div>
       </header>
-
-      <ChannelBar presets={presets} zone={zone} onAction={flash} />
 
       {zones.length > 0 && (
         <ZoneTabs zones={zones} active={zone} onChange={setZone} />

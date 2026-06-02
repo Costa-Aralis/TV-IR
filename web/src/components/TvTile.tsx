@@ -67,22 +67,25 @@ export function TvTile({ tv, presets, onAction }: Props) {
       </button>
 
       <div className="tile__presets">
-        {presets.map((p) => (
-          <button
-            key={p.num}
-            className="preset"
-            disabled={disabled || busy !== null}
-            onClick={() => run(`p${p.num}`, () => api.preset(tv.id, p.num), `→ ${p.label}`)}
-            title={[
-              p.channel ? `DirecTV ${p.channel}` : null,
-              p.rf ? `RF ${p.rf}` : null,
-              `Box ${p.num}`,
-            ].filter(Boolean).join(" · ")}
-          >
-            <span className="preset__label">{p.label}</span>
-            {p.channel && <span className="preset__num">{p.channel}</span>}
-          </button>
-        ))}
+        {presets.map((p) => {
+          const major = p.rf?.split(".")[0];
+          return (
+            <button
+              key={p.num}
+              className="preset"
+              disabled={disabled || busy !== null}
+              onClick={() => run(`p${p.num}`, () => api.preset(tv.id, p.num), `→ ${p.label}`)}
+              title={[
+                p.label,
+                p.channel ? `DirecTV ${p.channel}` : null,
+                p.rf ? `RF ${p.rf}` : null,
+                `Box ${p.num}`,
+              ].filter(Boolean).join(" · ")}
+            >
+              <span className="preset__label">{major ?? p.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {error && <div className="tile__error" title={error}>!</div>}

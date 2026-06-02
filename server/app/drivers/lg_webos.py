@@ -86,6 +86,34 @@ class LgClient:
         except Exception as exc:  # noqa: BLE001
             raise LgError(f"button {button}: {exc}") from exc
 
+    async def send_sequence(
+        self, keys: list, gap_s: float, alias_map: dict[str, str] | None = None
+    ) -> None:
+        """Send a sequence of logical buttons over a single connection.
+
+        `keys` is the raw preset list: strings are buttons, dicts may carry a
+        `delay_ms`. Sending all keys on one WebSocket avoids reconnect overhead
+        AND guarantees the TV sees them in order.
+        """
+        await self._connect()
+        alias_map = alias_map or {}
+        for step in keys:
+            if isinstance(step, dict):
+                delay = step.get("delay_ms")
+                if delay is not None:
+                    import asyncio
+                    await asyncio.sleep(delay / 1000.0)
+                continue
+            logical = alias_map.get(step, step)
+            button = _BUTTON_MAP.get(logical, logical)
+            try:
+                await self._client.button(button)  # type: ignore[union-attr]
+            except Exception as exc:  # noqa: BLE001
+                raise LgError(f"button {button}: {exc}") from exc
+            if gap_s > 0:
+                import asyncio
+                await asyncio.sleep(gap_s)
+
     async def healthy(self) -> bool:
         try:
             await self._connect()

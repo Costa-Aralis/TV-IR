@@ -52,7 +52,7 @@ class Event(BaseModel):
 
 
 class Registry(BaseModel):
-    key_gap_ms: int = 200
+    key_gap_ms: int = 80
     preset_template: dict[str, list[KeyStep]] = Field(default_factory=dict)
     preset_labels: dict[str, str] = Field(default_factory=dict)
     preset_channels: dict[str, str] = Field(default_factory=dict)
@@ -78,6 +78,23 @@ class Registry(BaseModel):
     def gap_ms(self, tv: TV) -> int:
         return tv.key_gap_ms if tv.key_gap_ms is not None else self.key_gap_ms
 
+    def preset_rf_channel(self, preset_num: int) -> str | None:
+        """Derive the RF channel ('30.2') from the preset template digit sequence."""
+        seq = self.preset_template.get(str(preset_num))
+        if not seq:
+            return None
+        digits: list[str] = []
+        for step in seq:
+            if isinstance(step, dict):
+                continue
+            if step in ("Enter", "Ok"):
+                break
+            if step in ("Dot", "Dash"):
+                digits.append(".")
+            elif isinstance(step, str) and step.isdigit():
+                digits.append(step)
+        return "".join(digits) if digits else None
+
 
 def load(path: Path) -> Registry:
     with path.open("r", encoding="utf-8") as fh:
@@ -101,10 +118,20 @@ class Pairings:
         self._load()
 
     def _load(self) -> None:
-        if self._path.exists():
+        if not self._path.exists():
+            return
+        try:
             self._data = json.loads(self._path.read_text())
+        except (json.JSONDecodeError, OSError):
+            # If the file is mid-write or corrupt, keep our current in-memory
+            # data and try again next time.
+            pass
 
     def get(self, tv_id: str) -> dict[str, Any]:
+        # Always re-read from disk — the pair CLI runs as a separate process
+        # and updates the file out-of-band; the server's in-memory cache would
+        # otherwise stay stale until restart.
+        self._load()
         return self._data.get(tv_id, {})
 
     def set(self, tv_id: str, **fields: Any) -> None:
