@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { AuthStatus, Preset, TV, TvListResponse } from "./types";
 import { TvTile } from "./components/TvTile";
@@ -35,7 +35,18 @@ export default function App() {
 
     const fetchAll = () => {
       api.listTvs()
-        .then((d) => alive && setData(d))
+        .then((d) => {
+          if (!alive) return;
+          // Preserve the status the poller has already gathered — a fresh
+          // listTvs() returns status: null and would otherwise flash every
+          // dot back to "unknown" once a minute.
+          setData((prev) => {
+            if (!prev) return d;
+            const byId = new Map(prev.tvs.map((t) => [t.id, t.status]));
+            return { ...d, tvs: d.tvs.map((t) => ({ ...t, status: t.status ?? byId.get(t.id) ?? null })) };
+          });
+          setError(null);
+        })
         .catch((e) => {
           if ((e as Error & { code?: string }).code === "auth_required") {
             setAuthed(false);
@@ -74,10 +85,13 @@ export default function App() {
     };
   }, [authed]);
 
+  const toastTimer = useRef<number | undefined>(undefined);
   const flash = useCallback((msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 2200);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 2200);
   }, []);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   if (authed === null) return <div className="app__loading">Loading…</div>;
   if (authed === false && pinRequired) return <LoginGate onAuthed={() => setAuthed(true)} />;

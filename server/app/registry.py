@@ -7,11 +7,13 @@ gitignored pairings.json so secrets never sit in the inventory file.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 
 KeyStep = str | dict  # either "Power" or {"delay_ms": 200}
@@ -61,6 +63,19 @@ class Registry(BaseModel):
     events: list[Event] = Field(default_factory=list)
     tvs: list[TV]
 
+    @model_validator(mode="after")
+    def _check_unique(self) -> "Registry":
+        ids: set[str] = set()
+        slots: set[int] = set()
+        for tv in self.tvs:
+            if tv.id in ids:
+                raise ValueError(f"duplicate TV id: {tv.id!r}")
+            if tv.slot in slots:
+                raise ValueError(f"duplicate slot {tv.slot} (id {tv.id!r})")
+            ids.add(tv.id)
+            slots.add(tv.slot)
+        return self
+
     def get(self, tv_id: str) -> TV:
         for tv in self.tvs:
             if tv.id == tv_id:
@@ -97,9 +112,17 @@ class Registry(BaseModel):
 
 
 def load(path: Path) -> Registry:
-    with path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
-    return Registry.model_validate(data)
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+    except FileNotFoundError as exc:
+        raise SystemExit(f"config not found: {path} (copy tvs.example.yaml)") from exc
+    except yaml.YAMLError as exc:
+        raise SystemExit(f"invalid YAML in {path}: {exc}") from exc
+    try:
+        return Registry.model_validate(data)
+    except ValidationError as exc:
+        raise SystemExit(f"invalid config in {path}:\n{exc}") from exc
 
 
 # -------- pairings (auth tokens / client keys / ADB key paths) --------
@@ -135,6 +158,22 @@ class Pairings:
         return self._data.get(tv_id, {})
 
     def set(self, tv_id: str, **fields: Any) -> None:
+        # Re-read first so we merge with anything written out-of-band, then
+        # write atomically (temp file + os.replace) so a concurrent reader
+        # never sees a half-written file.
+        self._load()
         self._data.setdefault(tv_id, {}).update(fields)
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(self._data, indent=2))
+        fd, tmp = tempfile.mkstemp(dir=self._path.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as fh:
+                json.dump(self._data, fh, indent=2)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, self._path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise

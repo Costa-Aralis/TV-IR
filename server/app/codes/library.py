@@ -42,9 +42,11 @@ class CodeLibrary:
             return parsed
 
     def _resolve(self, codes_file: str) -> Path:
-        path = (self._root / codes_file).resolve()
-        # Prevent path traversal outside the IRDB root.
-        if not str(path).startswith(str(self._root.resolve())):
+        root = self._root.resolve()
+        path = (root / codes_file).resolve()
+        # Prevent path traversal outside the IRDB root. is_relative_to avoids
+        # the string-prefix confusion of "/irdb" vs "/irdb-evil".
+        if not path.is_relative_to(root):
             raise ValueError(f"codes_file escapes IRDB root: {codes_file!r}")
         if not path.is_file():
             raise FileNotFoundError(f"IR file not found: {path}")

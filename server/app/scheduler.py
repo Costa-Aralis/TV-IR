@@ -46,19 +46,19 @@ class CronExpr:
         self.hour    = self._parse(parts[1], 0, 23)
         self.dom     = self._parse(parts[2], 1, 31)
         self.month   = self._parse(parts[3], 1, 12)
-        self.dow     = self._parse(parts[4], 0, 6)  # 0 = Mon, 6 = Sun (Python convention)
+        # Standard cron day-of-week: Sun=0 .. Sat=6, with 7 also accepted as Sun.
+        self.dow     = self._parse(parts[4], 0, 7)
 
     def matches(self, dt: datetime) -> bool:
-        # Python: Monday=0..Sunday=6. Cron: Sunday=0..Saturday=6.
-        # Accept both: convert dt.weekday() (Mon=0) AND (dt.weekday()+1)%7 (Sun=0).
-        py_dow = dt.weekday()
-        cron_dow = (py_dow + 1) % 7
+        # Convert Python weekday (Mon=0..Sun=6) to cron dow (Sun=0..Sat=6).
+        cron_dow = (dt.weekday() + 1) % 7
+        dow_ok = cron_dow in self.dow or (cron_dow == 0 and 7 in self.dow)
         return (
             dt.minute in self.minute
             and dt.hour in self.hour
             and dt.day in self.dom
             and dt.month in self.month
-            and (py_dow in self.dow or cron_dow in self.dow)
+            and dow_ok
         )
 
     @staticmethod
@@ -68,7 +68,7 @@ class CronExpr:
             step = 1
             if "/" in piece:
                 piece, step_s = piece.split("/", 1)
-                step = int(step_s)
+                step = max(1, int(step_s))
             if piece in ("*", ""):
                 start, end = lo, hi
             elif "-" in piece:
@@ -76,6 +76,8 @@ class CronExpr:
                 start, end = int(a), int(b)
             else:
                 start = end = int(piece)
+            if end < start:
+                continue  # ignore invalid reversed ranges like 5-2
             out.update(range(start, end + 1, step))
         return {v for v in out if lo <= v <= hi}
 
@@ -88,6 +90,7 @@ class Scheduler:
         self._dispatcher = dispatcher
         self._registry = registry
         self._task: asyncio.Task | None = None
+        self._fired: set[asyncio.Task] = set()
         self._stop = asyncio.Event()
         tz = os.environ.get("TZ", "America/Chicago")
         try:
@@ -109,21 +112,37 @@ class Scheduler:
             except asyncio.TimeoutError:
                 self._task.cancel()
             self._task = None
+        for t in list(self._fired):
+            t.cancel()
+        self._fired.clear()
 
     async def _run(self) -> None:
-        # Sleep until the next minute boundary, then tick once per minute.
+        # Evaluate once per wall-clock minute. Track the last minute handled so
+        # a long sweep that crosses a boundary can't skip or double-fire it.
+        last_minute_key = None
         while not self._stop.is_set():
             now = datetime.now(self._tz)
-            for cron, job in self._exprs:
-                if cron.matches(now):
-                    log.info("[scheduler] firing %s (%s)", job.action, job.when)
-                    asyncio.create_task(self._fire(job))
-            # sleep until top of next minute
-            sleep_s = 60 - now.second
+            minute_key = (now.year, now.month, now.day, now.hour, now.minute)
+            if minute_key != last_minute_key:
+                last_minute_key = minute_key
+                for cron, job in self._exprs:
+                    if cron.matches(now):
+                        log.info("[scheduler] firing %s (%s)", job.action, job.when)
+                        self._spawn(self._fire(job))
+            # Sleep to just past the next minute boundary.
+            now2 = datetime.now(self._tz)
+            sleep_s = max(0.5, 60 - now2.second - now2.microsecond / 1e6 + 0.5)
             try:
                 await asyncio.wait_for(self._stop.wait(), timeout=sleep_s)
             except asyncio.TimeoutError:
                 pass
+
+    def _spawn(self, coro) -> None:
+        # Track fired jobs so a slow/hung TV can't let detached tasks accumulate
+        # unbounded across days.
+        task = asyncio.create_task(coro)
+        self._fired.add(task)
+        task.add_done_callback(self._fired.discard)
 
     async def _fire(self, job: ScheduledJob) -> None:
         try:

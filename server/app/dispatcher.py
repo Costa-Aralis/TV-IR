@@ -86,13 +86,15 @@ class Dispatcher:
         tv = self._registry.get(tv_id)
 
         # Roku TVs need to be on the Live TV input before digit keys mean
-        # anything — otherwise the digits get eaten as menu navigation.
+        # anything — otherwise the digits get eaten as menu navigation. Probe
+        # with the input switch first; if it fails the TV is unreachable, so
+        # bail with one clear error instead of firing (and failing) 5 digits.
         if tv.type == "roku":
             client = RokuClient(tv.url, timeout=self._timeout)
             try:
                 await client.keypress("InputTuner")
-            except RokuError:
-                pass
+            except RokuError as exc:
+                raise DispatchError(str(exc)) from exc
             await asyncio.sleep(1.0)
 
         sequence = self._registry.preset_sequence(tv, preset_num)

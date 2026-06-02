@@ -58,14 +58,9 @@ class RokuClient:
         roku_key = ROKU_KEY_MAP.get(logical, logical)
         await self.keypress(roku_key)
 
-    async def tune(self, channel: str) -> None:
-        """Switch to the TV/antenna input and tune to `channel` (e.g. '30.2').
-
-        Roku TVs expose the live-TV input as an app named `tvinput.dtv`. Launching
-        it with a `ch` query atomically switches input AND tunes — works whether
-        the TV was on the Roku home screen, a streaming app, or already on TV.
-        """
-        await self._post(f"/launch/tvinput.dtv?ch={channel}")
+    # Note: launch/tvinput.dtv?ch=X.Y was tried for atomic tuning but the
+    # Sharp Roku TVs at the bar ignore the ch query, so the dispatcher uses an
+    # InputTuner keypress + digit sequence instead. Left out deliberately.
 
     async def info(self) -> dict[str, Any]:
         try:

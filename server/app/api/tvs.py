@@ -135,7 +135,7 @@ def _rf_from_sequence(seq) -> str | None:
     digits: list[str] = []
     saw_dot = False
     for step in seq:
-        if isinstance(step, dict):
+        if not isinstance(step, str):
             continue
         if step in {"Enter", "Ok"}:
             break
@@ -147,7 +147,7 @@ def _rf_from_sequence(seq) -> str | None:
             digits.append(step)
     if not digits:
         return None
-    return "".join(digits) if saw_dot else "".join(digits)
+    return "".join(digits)
 
 
 async def _dispatch(request: Request, action) -> dict:

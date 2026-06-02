@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -83,4 +83,8 @@ if _static.is_dir():
 
     @app.get("/{full_path:path}")
     async def spa_fallback(full_path: str) -> FileResponse:
+        # Don't serve the SPA shell for unmatched /api/* paths — a typo'd API
+        # route should 404 as JSON, not return HTML the frontend can't parse.
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="not found")
         return FileResponse(_static / "index.html")

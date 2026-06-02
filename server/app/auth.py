@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import hmac
 import os
-import secrets
 from typing import Awaitable, Callable
 
 from fastapi import Request
@@ -99,7 +98,8 @@ async def login(body: LoginRequest, response: Response) -> dict:
     pin = configured_pin()
     if pin is None:
         return {"ok": True, "authed": True, "pin_required": False}
-    if not hmac.compare_digest(body.pin, pin):
+    # compare_digest raises on non-ASCII str; compare bytes to be safe.
+    if not hmac.compare_digest(body.pin.encode("utf-8"), pin.encode("utf-8")):
         return JSONResponse({"ok": False, "error": "bad_pin"}, status_code=401)
     token = _expected_token(pin)
     # 12-hour cookie, httpOnly, SameSite=Lax for the tablet kiosk on the LAN.
@@ -127,7 +127,3 @@ async def status(request: Request) -> dict:
 # Stateless dev-only helper used in tests/CLI.
 def make_token_for_pin(pin: str) -> str:
     return _expected_token(pin)
-
-
-# Avoid an unused import — secrets is here in case we add CSRF later.
-_ = secrets
