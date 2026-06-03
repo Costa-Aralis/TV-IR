@@ -133,20 +133,23 @@ class VizioClient:
                 result.append(token)
         return result
 
-    async def tune_to(self, target: str, *, step_pause: float = 0.5,
-                      max_steps: int = 16) -> bool:
+    async def tune_to(self, target: str, *, step_pause: float = 0.4,
+                      verify_pause: float = 1.2) -> bool:
         """Reach `target` antenna channel via D-pad UP/DOWN.
 
         CHANNEL_UP/DOWN on this firmware cycles through WatchFree+ streaming
-        channels in addition to antenna channels, making it useless for
-        precise tuning. D-pad UP/DOWN on the other hand respects the antenna
-        boundary: it walks 30-2 → 31-2 → ... → 37-2 and stops at the edges
-        without spilling into the WatchFree+ list.
+        channels in addition to antenna channels. D-pad UP/DOWN walks ONLY
+        the antenna list (30-2 .. 37-2) — for the first 7 steps in each
+        direction. Press it MORE than that and it eventually spills past
+        37-2 into WatchFree+ too (the "cap" looked solid in testing but
+        was actually API read lag).
 
-        Algorithm: read current_channel, decide direction, fire one D-pad
-        press, repeat until current matches the target or we hit the cap.
-        Polling between presses lets us handle the API's ~1-step read lag
-        without overshooting.
+        So the safe algorithm is "send exactly delta presses, no more":
+          - Read current and target index.
+          - Pick direction (UP if target > current, else DOWN — never wrap).
+          - Fire exactly `delta` D-pad presses with a short gap.
+          - Settle, then verify. If we landed 1 short (banner-open ate the
+            first press), send one corrective press in the same direction.
 
         `target` accepts '30.2' or '30-2'.
         """
@@ -157,32 +160,50 @@ class VizioClient:
             antenna = await self.get_channel_list()
         except VizioError:
             antenna = []
+        if not antenna:
+            return False
 
-        for _ in range(max_steps):
-            current = await self.get_current_channel()
-            if current == target_h:
-                return True
-            if not current:
-                # No channel readout — TV might be on SmartCast home or
-                # WatchFree+. We have no clean way to navigate back from
-                # those via the API, so give up rather than guessing.
-                return False
-            try:
-                cur_idx = antenna.index(current) if antenna else -1
-                tgt_idx = antenna.index(target_h) if antenna else -1
-            except ValueError:
-                # current isn't an antenna channel (probably WatchFree+ or
-                # an HDMI input is selected) — can't help from here.
-                return False
+        current = await self.get_current_channel()
+        if current == target_h:
+            return True
+        if current not in antenna:
+            # We're somewhere outside the antenna list (WatchFree+, HDMI,
+            # SmartCast home) — no safe path back from here without risking
+            # a stray WatchFree+ press.
+            return False
 
-            if cur_idx == -1 or tgt_idx == -1:
-                return False
+        cur_idx = antenna.index(current)
+        tgt_idx = antenna.index(target_h)
 
-            if tgt_idx > cur_idx:
-                await self.keypress(3, 8)  # D-pad UP
-            else:
-                await self.keypress(3, 0)  # D-pad DOWN
+        if tgt_idx > cur_idx:
+            key_code = 8   # D-pad UP
+            delta = tgt_idx - cur_idx
+        else:
+            key_code = 0   # D-pad DOWN
+            delta = cur_idx - tgt_idx
+
+        # Send exactly `delta` presses — no polling between, no risk of
+        # one extra press spilling into WatchFree+ at the edge.
+        for _ in range(delta):
+            await self.keypress(3, key_code)
             await asyncio.sleep(step_pause)
+
+        # Let the API catch up (read lag ~1 step), then verify.
+        await asyncio.sleep(verify_pause)
+        final = await self.get_current_channel()
+        if final == target_h:
+            return True
+
+        # Off by 1 in either direction (often the channel banner ate the
+        # first press, or the TV was being slow). Send one corrective hop.
+        if final in antenna:
+            final_idx = antenna.index(final)
+            if abs(final_idx - tgt_idx) == 1:
+                code = 8 if tgt_idx > final_idx else 0
+                await self.keypress(3, code)
+                await asyncio.sleep(verify_pause)
+                final = await self.get_current_channel()
+                return final == target_h
         return False
 
     async def healthy(self) -> bool:
