@@ -127,12 +127,21 @@ class StatusMonitor:
                 # briefly unresponsive while tuning. Give it more slack
                 # than the other probes.
                 vizio_timeout = max(self._timeout * 2, 6.0)
+                # Send AUTH if we have it — some newer SmartCast firmware
+                # 403s unauthenticated GETs even to read-only state endpoints.
+                headers = {}
+                pairings = getattr(self, "_pairings", None)
+                token = pairings.get(tv.id).get("auth_token") if pairings else None
+                if token:
+                    headers["AUTH"] = token
                 async with httpx.AsyncClient(timeout=vizio_timeout, verify=False) as c:
-                    r = await c.get(f"{tv.url.rstrip('/')}/state/device/power_mode/")
-                # 401 (no auth) still proves reachability; just not authed
-                if r.status_code not in (200, 401):
-                    return False, None, None
-                # If we have an auth token, fetch the current channel too.
+                    r = await c.get(
+                        f"{tv.url.rstrip('/')}/state/device/power_mode/",
+                        headers=headers,
+                    )
+                # Any HTTP response (including 401/403/404) means the TV is
+                # alive — only timeouts / connection errors are "unreachable".
+                # Channel fetch needs a 200 though.
                 ch = await self._vizio_channel(tv) if r.status_code == 200 else None
                 return True, None, ch
             if tv.type == "lg":
