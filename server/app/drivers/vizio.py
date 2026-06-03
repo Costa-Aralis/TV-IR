@@ -117,45 +117,63 @@ class VizioClient:
                 return str(v) if v is not None else None
         return None
 
-    async def tune_to(self, target: str, *, max_steps: int = 40, step_pause: float = 1.0) -> bool:
-        """Reach `target` channel via repeated CHANNEL_UP keypresses.
+    async def get_channel_list(self) -> list[str]:
+        """Ordered list of channels in the TV's scanned-channel database.
 
-        V-series SmartCast firmware doesn't expose number keys, so digit
-        entry isn't available. CHANNEL_UP cycles through whatever the TV
-        scanned — at Rocky's that's mostly the 8 Thor outputs but some
-        OTA broadcasts may also be present.
+        Pulled from the Skip Channel submenu, which has one entry per
+        scanned channel. Each entry's NAME looks like '30-2 VIDEO'; we
+        keep just the channel token.
+        """
+        data = await self._get("/menu_native/dynamic/tv_settings/channels/skip_channel")
+        result: list[str] = []
+        for item in data.get("ITEMS") or []:
+            name = item.get("NAME") or ""
+            token = name.split(" ", 1)[0] if name else ""
+            if token:
+                result.append(token)
+        return result
 
-        Algorithm: read current channel, channel-up + poll, repeat. If we
-        ever see the same channel twice (full cycle wrap) and still haven't
-        found the target, give up rather than spinning forever.
+    async def tune_to(self, target: str, *, step_pause: float = 0.5) -> bool:
+        """Reach `target` channel deterministically via the right number of
+        CHANNEL_UP presses.
 
-        target accepts '30.2' or '30-2'. Returns True if reached.
+        V-series SmartCast firmware doesn't expose digit keys and
+        current_channel API updates lag behind the actual tuner. Polling
+        is unreliable — but the scan database (Skip Channel menu) tells us
+        the exact ordered cycle, so we compute the delta and fire that
+        many keypresses, no polling needed.
+
+        target accepts '30.2' or '30-2'.
         """
         import asyncio
         target_h = target.replace(".", "-")
 
-        current = await self.get_current_channel()
-        if current == target_h:
-            return True
-        seen: set[str] = {current} if current else set()
-        last = current
+        try:
+            channels = await self.get_channel_list()
+        except VizioError:
+            return False
+        if not channels:
+            return False
 
-        for _ in range(max_steps):
+        current = await self.get_current_channel()
+        try:
+            cur_idx = channels.index(current) if current else 0
+        except ValueError:
+            cur_idx = 0  # current isn't in the list — start from the top
+        try:
+            tgt_idx = channels.index(target_h)
+        except ValueError:
+            return False  # target isn't in the scanned list
+
+        n = len(channels)
+        steps = (tgt_idx - cur_idx) % n
+        if steps == 0:
+            return True
+
+        for _ in range(steps):
             await self.keypress(8, 1)  # CHANNEL_UP
             await asyncio.sleep(step_pause)
-            now = await self.get_current_channel()
-            if now == target_h:
-                return True
-            if now is None or now == last:
-                # TV hasn't settled on the new channel yet — try again.
-                continue
-            if now in seen:
-                # We've cycled past every scanned channel without seeing
-                # the target. It's not in the scanned list at all.
-                return False
-            seen.add(now)
-            last = now
-        return False
+        return True
 
     async def healthy(self) -> bool:
         try:
