@@ -62,8 +62,9 @@ class StatusMonitor:
             try:
                 # Hard cap on sweep duration so a single misbehaving probe
                 # (LG WS hanging mid-handshake, Vizio mid-tune-cycle) can't
-                # block the next tick. Everyone gets re-probed promptly.
-                await asyncio.wait_for(self._sweep(), timeout=max(self._interval - 1.0, 5.0))
+                # block the next tick. Generous so the slowest probe
+                # (Vizio's /channels at 2-6 sec) comfortably fits.
+                await asyncio.wait_for(self._sweep(), timeout=max(self._interval * 1.5, 12.0))
             except asyncio.TimeoutError:
                 log.warning("status sweep exceeded %.1fs; continuing", self._interval)
             except Exception:  # noqa: BLE001
@@ -238,8 +239,12 @@ class StatusMonitor:
         token = pairings.get(tv.id).get("auth_token") if pairings else None
         if not token:
             return None
+        # Vizio's /channels endpoint takes 2-6 sec to respond — the default
+        # 3-sec probe timeout was silently swallowing the response, making
+        # channel always come back None.
+        timeout = max(self._timeout * 2, 6.0)
         try:
-            async with httpx.AsyncClient(timeout=self._timeout, verify=False) as c:
+            async with httpx.AsyncClient(timeout=timeout, verify=False) as c:
                 r = await c.get(
                     f"{tv.url.rstrip('/')}/menu_native/dynamic/tv_settings/channels",
                     headers={"AUTH": token},
