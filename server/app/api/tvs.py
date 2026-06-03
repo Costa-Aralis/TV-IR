@@ -102,7 +102,13 @@ def _status_payload(monitor, tv_id: str) -> dict | None:
     s = monitor.get(tv_id)
     if s is None:
         return None
-    return {"reachable": s.reachable, "last_check_ts": s.last_check_ts, "error": s.last_error}
+    return {
+        "reachable": s.reachable,
+        "last_check_ts": s.last_check_ts,
+        "error": s.last_error,
+        "channel": s.channel,
+        "channel_rf": s.channel_rf,
+    }
 
 
 def _presets_payload(registry) -> list[dict]:

@@ -103,6 +103,42 @@ class VizioClient:
             raise VizioError("power_mode returned no items")
         return bool(items[0].get("VALUE"))
 
+    async def get_current_channel(self) -> str | None:
+        """The TV's current channel as it reports it, e.g. '35-2'.
+
+        Read-only — exposed under /menu_native/dynamic/tv_settings/channels
+        (CNAME=current_channel). V-series firmware uses '-' for the
+        subchannel separator, not '.'.
+        """
+        data = await self._get("/menu_native/dynamic/tv_settings/channels")
+        for item in data.get("ITEMS") or []:
+            if item.get("CNAME") == "current_channel":
+                v = item.get("VALUE")
+                return str(v) if v is not None else None
+        return None
+
+    async def tune_to(self, target: str, *, max_steps: int = 12, step_pause: float = 0.6) -> bool:
+        """Reach `target` channel via repeated CHANNEL_UP keypresses.
+
+        V-series SmartCast firmware doesn't expose number keys, so direct
+        digit entry isn't an option. CHANNEL_UP cycles through the TV's
+        scanned channel list; at Rocky's the scan found just the 8 Thor
+        outputs, so the worst-case loop is 7 steps. Reads current_channel
+        between steps to know when to stop.
+
+        target accepts '30.2' or '30-2'. Returns True if reached.
+        """
+        import asyncio
+        target_h = target.replace(".", "-")
+        if await self.get_current_channel() == target_h:
+            return True
+        for _ in range(max_steps):
+            await self.keypress(8, 1)
+            await asyncio.sleep(step_pause)
+            if await self.get_current_channel() == target_h:
+                return True
+        return False
+
     async def healthy(self) -> bool:
         try:
             await self._get("/state/device/power_mode/")

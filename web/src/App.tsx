@@ -67,7 +67,13 @@ export default function App() {
               tvs: d.tvs.map((tv) => ({
                 ...tv,
                 status: s[tv.id]
-                  ? { reachable: s[tv.id].reachable, last_check_ts: 0, error: null }
+                  ? {
+                      reachable: s[tv.id].reachable,
+                      last_check_ts: 0,
+                      error: null,
+                      channel: (s[tv.id] as any).channel ?? null,
+                      channel_rf: (s[tv.id] as any).channel_rf ?? null,
+                    }
                   : tv.status,
               })),
             };

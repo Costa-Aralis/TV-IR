@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
         timeout=settings.request_timeout_s,
     )
     monitor = StatusMonitor(reg)
+    monitor.set_pairings(pairings)
     scheduler = Scheduler(load_jobs(reg.schedule), dispatcher, reg)
 
     app.state.registry = reg

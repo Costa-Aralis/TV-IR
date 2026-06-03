@@ -240,6 +240,30 @@ button:not(:disabled):active { transform: scale(0.98); }
   color: white;
 }
 
+/* "Now playing" row — channel label the TV is currently on */
+.tile__now {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 4px;
+  padding: 3px 8px;
+  text-align: center;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Highlight the preset button matching the current channel */
+.preset--active {
+  background: var(--accent) !important;
+  border-color: var(--accent-hot) !important;
+  color: #1a1300 !important;
+}
+.preset--active .preset__label { color: #1a1300; }
+
 .tile__presets {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

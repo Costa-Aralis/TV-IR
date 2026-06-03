@@ -120,6 +120,23 @@ class Dispatcher:
     async def preset(self, tv_id: str, preset_num: int) -> None:
         tv = self._registry.get(tv_id)
 
+        # Vizio V-series firmware doesn't expose number keys via SmartCast.
+        # Walk CHANNEL_UP while polling current_channel until we hit the RF
+        # target (worst case 7 steps since only 8 channels are scanned).
+        if tv.type == "vizio":
+            rf = self._registry.preset_rf_channel(preset_num)
+            if not rf:
+                raise DispatchError(f"preset {preset_num} has no RF target")
+            token = self._pairings.get(tv.id).get("auth_token")
+            client = VizioClient(tv.url, auth_token=token, timeout=self._timeout)
+            try:
+                reached = await client.tune_to(rf)
+            except VizioError as exc:
+                raise DispatchError(str(exc)) from exc
+            if not reached:
+                raise DispatchError(f"tune to {rf} didn't land (still wrong channel)")
+            return
+
         # Roku TVs need to be on the Live TV input before digit keys mean
         # anything — otherwise the digits get eaten as menu navigation. Probe
         # with the input switch first; if it fails the TV is unreachable, so

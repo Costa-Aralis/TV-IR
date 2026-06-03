@@ -48,6 +48,9 @@ export function TvTile({ tv, presets, onAction }: Props) {
   // Strip the brand/model prefix from "TV01 Vizio V756x-J03" → "TV01" for a
   // calmer tile. The full name lives in the tooltip.
   const shortName = tv.name.match(/^(TV\d+)/)?.[1] ?? tv.name;
+  const currentRf = tv.status?.channel_rf ?? null;
+  // What's playing right now (channel label) — find the preset whose rf matches.
+  const onPreset = currentRf ? presets.find((p) => p.rf === currentRf) : null;
 
   return (
     <div className={`tile tile--${tv.type}`} title={`${tv.name} · ${TYPE_BADGE[tv.type]}`}>
@@ -67,13 +70,20 @@ export function TvTile({ tv, presets, onAction }: Props) {
         </button>
       </header>
 
+      {currentRf && (
+        <div className="tile__now" title={onPreset ? `${onPreset.label} · DirecTV ${onPreset.channel ?? "?"}` : `Channel ${currentRf}`}>
+          {onPreset?.label ?? `Ch ${currentRf}`}
+        </div>
+      )}
+
       <div className="tile__presets">
         {presets.map((p) => {
           const major = p.rf?.split(".")[0];
+          const active = p.rf && currentRf === p.rf;
           return (
             <button
               key={p.num}
-              className="preset"
+              className={`preset ${active ? "preset--active" : ""}`}
               disabled={disabled || busy !== null}
               onClick={() => run(`p${p.num}`, () => api.preset(tv.id, p.num), `→ ${p.label}`)}
               title={[

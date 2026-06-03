@@ -18,6 +18,8 @@ export interface TvStatus {
   reachable: boolean;
   last_check_ts: number;
   error: string | null;
+  channel: string | null;        // raw form as TV reports (e.g. '30-2' on Vizio)
+  channel_rf: string | null;     // normalized '30.2'
 }
 
 export interface TV {
