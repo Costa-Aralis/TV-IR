@@ -103,13 +103,61 @@ class StatusMonitor:
                 # If we have an auth token, fetch the current channel too.
                 ch = await self._vizio_channel(tv) if r.status_code == 200 else None
                 return True, None, ch
-            if tv.type in ("lg", "androidtv", "firetv", "ir"):
+            if tv.type == "lg":
+                host, _, port_s = tv.url.replace("ws://", "").replace("wss://", "").rstrip("/").partition(":")
+                port = int(port_s) if port_s else _default_port(tv.type)
+                ok = await _tcp_probe(host, port, self._timeout)
+                ch = await self._lg_channel(tv) if ok else None
+                return ok, None, ch
+            if tv.type in ("androidtv", "firetv", "ir"):
+                # Android/Fire TV channel reporting is firmware-fragile (TIF
+                # database lives behind a ContentResolver; no clean ADB read).
+                # Reachability only for now.
                 host, _, port_s = tv.url.replace("ws://", "").replace("wss://", "").rstrip("/").partition(":")
                 port = int(port_s) if port_s else _default_port(tv.type)
                 return await _tcp_probe(host, port, self._timeout), None, None
             return False, f"unknown type {tv.type!r}", None
         except Exception as exc:  # noqa: BLE001
             return False, str(exc), None
+
+    async def _lg_channel(self, tv: TV) -> str | None:
+        """Query LG webOS for the current channel via aiowebostv."""
+        pairings = getattr(self, "_pairings", None)
+        if pairings is None:
+            return None
+        client_key = pairings.get(tv.id).get("client_key")
+        if not client_key:
+            return None
+        host = tv.url.replace("ws://", "").replace("wss://", "").rstrip("/")
+        # Lazy import so we don't pay the cost when LG isn't in inventory.
+        from aiowebostv import WebOsClient
+        client = WebOsClient(host, client_key=client_key)
+        try:
+            await asyncio.wait_for(client.connect(), timeout=self._timeout)
+        except Exception:  # noqa: BLE001
+            return None
+        try:
+            # aiowebostv exposes current_channel as a cached property after
+            # an update call; older versions need get_current_channel().
+            ch = None
+            try:
+                fn = getattr(client, "get_current_channel", None)
+                if callable(fn):
+                    info = await asyncio.wait_for(fn(), timeout=self._timeout)
+                    if isinstance(info, dict):
+                        ch = info.get("channelNumber") or info.get("channelName")
+            except Exception:  # noqa: BLE001
+                pass
+            if not ch:
+                ch = getattr(client, "current_channel", None)
+                if isinstance(ch, dict):
+                    ch = ch.get("channelNumber")
+            return str(ch) if ch else None
+        finally:
+            try:
+                await client.disconnect()
+            except Exception:  # noqa: BLE001
+                pass
 
     async def _vizio_channel(self, tv: TV) -> str | None:
         pairings = getattr(self, "_pairings", None)
