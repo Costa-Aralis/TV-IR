@@ -51,6 +51,8 @@ async def all_status(request: Request) -> dict:
             "reachable": s.reachable,
             "last_check_ts": s.last_check_ts,
             "error": s.last_error,
+            "channel": s.channel,
+            "channel_rf": s.channel_rf,
         }
         for tv_id, s in monitor.all().items()
     }
