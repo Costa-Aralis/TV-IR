@@ -95,8 +95,23 @@ class Dispatcher:
                         f"{tv.id}: 'on' requires `mac:` in tvs.yaml for WoL"
                     )
                 return  # WoL above handles it
-            # toggle: sending POWER on the WS only works while TV is on.
-            await self._send_logical(tv, "Power")
+            # toggle: POWER over the WS only works while the TV is on; if WS
+            # is unreachable the TV is almost certainly off, so fall back to
+            # WoL just like the Android TV / Fire TV path does.
+            try:
+                await self._send_logical(tv, "Power")
+            except DispatchError:
+                if tv.mac:
+                    host_ip = _host_from_url(tv.url)
+                    try:
+                        if host_ip:
+                            wol.send_to_host(tv.mac, host_ip)
+                        else:
+                            wol.send(tv.mac)
+                    except wol.WolError:
+                        pass
+                else:
+                    raise
             return
 
         if tv.type in ("androidtv", "firetv"):
