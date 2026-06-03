@@ -27,7 +27,7 @@ class TvStatus:
 
 
 class StatusMonitor:
-    def __init__(self, registry: Registry, *, interval_s: float = 15.0, timeout_s: float = 3.0) -> None:
+    def __init__(self, registry: Registry, *, interval_s: float = 8.0, timeout_s: float = 3.0) -> None:
         self._registry = registry
         self._interval = interval_s
         self._timeout = timeout_s

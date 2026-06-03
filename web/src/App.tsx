@@ -82,8 +82,11 @@ export default function App() {
         .catch(() => {});
     };
 
+    // Expose the latest fetchStatus to refs so `flash` can poke it after an action.
+    fetchStatusRef.current = fetchStatus;
+
     fetchAll();
-    const t1 = window.setInterval(fetchStatus, 10_000);
+    const t1 = window.setInterval(fetchStatus, 5_000);
     const t2 = window.setInterval(fetchAll, 60_000);
     return () => {
       alive = false;
@@ -93,12 +96,23 @@ export default function App() {
   }, [authed]);
 
   const toastTimer = useRef<number | undefined>(undefined);
+  const fetchStatusRef = useRef<() => void>(() => {});
+  const refreshTimer = useRef<number | undefined>(undefined);
+
   const flash = useCallback((msg: string) => {
     setToast(msg);
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 2200);
+    // After any action, give the server a beat to apply it, then refresh
+    // status so the bartender sees the new channel/dot immediately rather
+    // than waiting up to 5 sec for the next poll tick.
+    window.clearTimeout(refreshTimer.current);
+    refreshTimer.current = window.setTimeout(() => fetchStatusRef.current(), 700);
   }, []);
-  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(toastTimer.current);
+    window.clearTimeout(refreshTimer.current);
+  }, []);
 
   if (authed === null) return <div className="app__loading">Loading…</div>;
   if (authed === false && pinRequired) return <LoginGate onAuthed={() => setAuthed(true)} />;
