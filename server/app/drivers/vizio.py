@@ -133,53 +133,56 @@ class VizioClient:
                 result.append(token)
         return result
 
-    async def tune_to(self, target: str, *, step_pause: float = 0.8,
-                      max_steps: int = 60) -> bool:
-        """Reach `target` channel via CHANNEL_UP, polling current_channel
-        between steps to know when to stop.
+    async def tune_to(self, target: str, *, step_pause: float = 0.5,
+                      max_steps: int = 16) -> bool:
+        """Reach `target` antenna channel via D-pad UP/DOWN.
 
-        Originally this used the Skip Channel menu to compute an exact step
-        count, but on most V-series firmware CHANNEL_UP cycles ALL scanned
-        channels (often 600+ if broadcast antennas are present), not just
-        the unskipped ones. So the menu-derived step count would overshoot
-        into broadcast channels.
+        CHANNEL_UP/DOWN on this firmware cycles through WatchFree+ streaming
+        channels in addition to antenna channels, making it useless for
+        precise tuning. D-pad UP/DOWN on the other hand respects the antenna
+        boundary: it walks 30-2 → 31-2 → ... → 37-2 and stops at the edges
+        without spilling into the WatchFree+ list.
 
-        Robust algorithm:
-          - Read current channel.
-          - Channel-up + wait + read current.
-          - If we hit the target, stop.
-          - If we ever see a previously-seen channel again (full cycle wrap),
-            give up — the target isn't actually in the scan database.
-          - Max 60 steps as a safety cap (60 × 0.8 = 48 sec worst case).
+        Algorithm: read current_channel, decide direction, fire one D-pad
+        press, repeat until current matches the target or we hit the cap.
+        Polling between presses lets us handle the API's ~1-step read lag
+        without overshooting.
 
-        For a clean fast tune, the TV needs to be re-scanned in Antenna
-        mode with ONLY the Thor coax connected. With 8 channels in scan,
-        worst case becomes 7 steps = ~6 seconds.
+        `target` accepts '30.2' or '30-2'.
         """
         import asyncio
         target_h = target.replace(".", "-")
 
-        current = await self.get_current_channel()
-        if current == target_h:
-            return True
-
-        seen: set[str] = {current} if current else set()
-        last = current
+        try:
+            antenna = await self.get_channel_list()
+        except VizioError:
+            antenna = []
 
         for _ in range(max_steps):
-            await self.keypress(8, 1)  # CHANNEL_UP
-            await asyncio.sleep(step_pause)
-            now = await self.get_current_channel()
-            if now == target_h:
+            current = await self.get_current_channel()
+            if current == target_h:
                 return True
-            if now is None or now == last:
-                # tuner hasn't settled — try again, don't add to seen
-                continue
-            if now in seen:
-                # full cycle wrap — target isn't in the scanned list
+            if not current:
+                # No channel readout — TV might be on SmartCast home or
+                # WatchFree+. We have no clean way to navigate back from
+                # those via the API, so give up rather than guessing.
                 return False
-            seen.add(now)
-            last = now
+            try:
+                cur_idx = antenna.index(current) if antenna else -1
+                tgt_idx = antenna.index(target_h) if antenna else -1
+            except ValueError:
+                # current isn't an antenna channel (probably WatchFree+ or
+                # an HDMI input is selected) — can't help from here.
+                return False
+
+            if cur_idx == -1 or tgt_idx == -1:
+                return False
+
+            if tgt_idx > cur_idx:
+                await self.keypress(3, 8)  # D-pad UP
+            else:
+                await self.keypress(3, 0)  # D-pad DOWN
+            await asyncio.sleep(step_pause)
         return False
 
     async def healthy(self) -> bool:
