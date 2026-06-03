@@ -111,6 +111,21 @@ class AdbClient:
             raise AdbError(f"unsupported key: {key!r}")
         await self.keyevent(code)
 
+    async def launch(self, activity: str) -> None:
+        """Launch a specific Android activity via `am start -n <pkg>/<.Activity>`.
+
+        Used to put the TV into Live Channels before sending channel digits.
+        Different brands ship different Live TV apps:
+          - Hisense 70H6570G:  com.mediatek.wwtv.tvcenter/.nav.TurnkeyUiMainActivity
+          - Hisense 75U6H:     (TBD — Google TV)
+          - Fire TV:           (TBD — Amazon's tuner app)
+        """
+        device = await self._connect()
+        try:
+            await device.shell(f"am start -n {activity}", read_timeout_s=self._timeout)
+        except Exception as exc:  # noqa: BLE001
+            raise AdbError(f"launch {activity}: {exc}") from exc
+
     async def healthy(self) -> bool:
         try:
             await self._connect()

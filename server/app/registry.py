@@ -30,6 +30,8 @@ class TV(BaseModel):
     codes: str | None = None  # IR only: path under IRDB
     mac: str | None = None    # for Wake-on-LAN ("AA:BB:CC:DD:EE:FF")
     zone: str | None = None   # logical group e.g. "Bar Front", "Patio"
+    live_tv_activity: str | None = None   # androidtv/firetv: am start -n <activity>
+                                          # to switch to Live TV before digit entry
     key_map: dict[str, str] = Field(default_factory=dict)
     presets: dict[str, list[KeyStep]] | None = None
     key_gap_ms: int | None = None

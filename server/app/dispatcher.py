@@ -107,7 +107,23 @@ class Dispatcher:
                     pass
                 return
             key = {"off": "PowerOff", "toggle": "Power"}.get(state, "Power")
-            await self._send_logical(tv, key)
+            try:
+                await self._send_logical(tv, key)
+            except DispatchError:
+                # ADB unreachable. For toggle, that almost certainly means the
+                # TV is already off — fall back to WoL to wake it. For off,
+                # swallow the error; it's already off.
+                if state == "toggle" and tv.mac:
+                    host_ip = _host_from_url(tv.url)
+                    try:
+                        if host_ip:
+                            wol.send_to_host(tv.mac, host_ip)
+                        else:
+                            wol.send(tv.mac)
+                    except wol.WolError:
+                        pass
+                elif state != "off":
+                    raise
             return
 
         if tv.type == "roku":
@@ -158,6 +174,20 @@ class Dispatcher:
             except RokuError as exc:
                 raise DispatchError(str(exc)) from exc
             await asyncio.sleep(1.0)
+
+        # Android TV / Fire TV: launch the Live Channels activity by name
+        # before sending digits. KEYCODE_TV (170) is unreliable — on Hisense
+        # firmware it's commonly remapped to Netflix. Activity name is per-TV
+        # configurable (tv.live_tv_activity); default targets the MediaTek
+        # tvcenter app that ships on Hisense 70H6570G.
+        if tv.type in ("androidtv", "firetv"):
+            activity = tv.live_tv_activity or "com.mediatek.wwtv.tvcenter/.nav.TurnkeyUiMainActivity"
+            adb = self._adb(tv)
+            try:
+                await adb.launch(activity)
+            except AdbError:
+                pass  # best-effort; fall through to digit entry
+            await asyncio.sleep(2.0)
 
         sequence = self._registry.preset_sequence(tv, preset_num)
         gap = self._registry.gap_ms(tv) / 1000.0
