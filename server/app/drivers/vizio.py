@@ -117,26 +117,44 @@ class VizioClient:
                 return str(v) if v is not None else None
         return None
 
-    async def tune_to(self, target: str, *, max_steps: int = 12, step_pause: float = 0.6) -> bool:
+    async def tune_to(self, target: str, *, max_steps: int = 40, step_pause: float = 1.0) -> bool:
         """Reach `target` channel via repeated CHANNEL_UP keypresses.
 
-        V-series SmartCast firmware doesn't expose number keys, so direct
-        digit entry isn't an option. CHANNEL_UP cycles through the TV's
-        scanned channel list; at Rocky's the scan found just the 8 Thor
-        outputs, so the worst-case loop is 7 steps. Reads current_channel
-        between steps to know when to stop.
+        V-series SmartCast firmware doesn't expose number keys, so digit
+        entry isn't available. CHANNEL_UP cycles through whatever the TV
+        scanned — at Rocky's that's mostly the 8 Thor outputs but some
+        OTA broadcasts may also be present.
+
+        Algorithm: read current channel, channel-up + poll, repeat. If we
+        ever see the same channel twice (full cycle wrap) and still haven't
+        found the target, give up rather than spinning forever.
 
         target accepts '30.2' or '30-2'. Returns True if reached.
         """
         import asyncio
         target_h = target.replace(".", "-")
-        if await self.get_current_channel() == target_h:
+
+        current = await self.get_current_channel()
+        if current == target_h:
             return True
+        seen: set[str] = {current} if current else set()
+        last = current
+
         for _ in range(max_steps):
-            await self.keypress(8, 1)
+            await self.keypress(8, 1)  # CHANNEL_UP
             await asyncio.sleep(step_pause)
-            if await self.get_current_channel() == target_h:
+            now = await self.get_current_channel()
+            if now == target_h:
                 return True
+            if now is None or now == last:
+                # TV hasn't settled on the new channel yet — try again.
+                continue
+            if now in seen:
+                # We've cycled past every scanned channel without seeing
+                # the target. It's not in the scanned list at all.
+                return False
+            seen.add(now)
+            last = now
         return False
 
     async def healthy(self) -> bool:

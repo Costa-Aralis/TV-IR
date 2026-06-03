@@ -56,8 +56,18 @@ class StatusMonitor:
             self._task = None
 
     async def _run(self) -> None:
+        import logging
+        log = logging.getLogger("tvir.status")
         while not self._stop.is_set():
-            await self._sweep()
+            try:
+                # Hard cap on sweep duration so a single misbehaving probe
+                # (LG WS hanging mid-handshake, Vizio mid-tune-cycle) can't
+                # block the next tick. Everyone gets re-probed promptly.
+                await asyncio.wait_for(self._sweep(), timeout=max(self._interval - 1.0, 5.0))
+            except asyncio.TimeoutError:
+                log.warning("status sweep exceeded %.1fs; continuing", self._interval)
+            except Exception:  # noqa: BLE001
+                log.exception("status sweep crashed; continuing")
             try:
                 await asyncio.wait_for(self._stop.wait(), timeout=self._interval)
             except asyncio.TimeoutError:
@@ -121,7 +131,17 @@ class StatusMonitor:
             return False, str(exc), None
 
     async def _lg_channel(self, tv: TV) -> str | None:
-        """Query LG webOS for the current channel via aiowebostv."""
+        """Query LG webOS for the current channel via aiowebostv.
+
+        Wrapped in a hard wait_for so a misbehaving WebSocket can't hold up
+        the rest of the sweep. Best-effort: any exception → None.
+        """
+        try:
+            return await asyncio.wait_for(self._lg_channel_inner(tv), timeout=self._timeout)
+        except (asyncio.TimeoutError, Exception):  # noqa: BLE001
+            return None
+
+    async def _lg_channel_inner(self, tv: TV) -> str | None:
         pairings = getattr(self, "_pairings", None)
         if pairings is None:
             return None
@@ -129,29 +149,26 @@ class StatusMonitor:
         if not client_key:
             return None
         host = tv.url.replace("ws://", "").replace("wss://", "").rstrip("/")
-        # Lazy import so we don't pay the cost when LG isn't in inventory.
         from aiowebostv import WebOsClient
         client = WebOsClient(host, client_key=client_key)
         try:
-            await asyncio.wait_for(client.connect(), timeout=self._timeout)
+            await client.connect()
         except Exception:  # noqa: BLE001
             return None
         try:
-            # aiowebostv exposes current_channel as a cached property after
-            # an update call; older versions need get_current_channel().
             ch = None
-            try:
-                fn = getattr(client, "get_current_channel", None)
-                if callable(fn):
-                    info = await asyncio.wait_for(fn(), timeout=self._timeout)
+            fn = getattr(client, "get_current_channel", None)
+            if callable(fn):
+                try:
+                    info = await fn()
                     if isinstance(info, dict):
                         ch = info.get("channelNumber") or info.get("channelName")
-            except Exception:  # noqa: BLE001
-                pass
+                except Exception:  # noqa: BLE001
+                    pass
             if not ch:
-                ch = getattr(client, "current_channel", None)
-                if isinstance(ch, dict):
-                    ch = ch.get("channelNumber")
+                cur = getattr(client, "current_channel", None)
+                if isinstance(cur, dict):
+                    ch = cur.get("channelNumber")
             return str(ch) if ch else None
         finally:
             try:
