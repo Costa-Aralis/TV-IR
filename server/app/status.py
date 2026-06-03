@@ -100,6 +100,8 @@ class StatusMonitor:
         )
 
     async def _sweep(self) -> None:
+        import logging
+        log = logging.getLogger("tvir.status")
         tvs = list(self._registry.tvs)  # snapshot once so the zip below aligns
         results = await asyncio.gather(
             *(self._probe(tv) for tv in tvs),
@@ -109,8 +111,10 @@ class StatusMonitor:
         for tv, res in zip(tvs, results):
             if isinstance(res, Exception):
                 ok, err, channel = False, str(res), None
+                log.warning("sweep %s EXC: %r", tv.id, res)
             else:
                 ok, err, channel = res
+                log.warning("sweep %s probe -> ok=%s err=%r channel=%r", tv.id, ok, err, channel)
 
             prev = self._state.get(tv.id)
 
@@ -129,9 +133,11 @@ class StatusMonitor:
             # minutes at a time without the TV actually changing state.
             if channel is None and prev is not None and prev.channel:
                 channel = prev.channel
+                log.warning("sweep %s preserved prev channel=%r", tv.id, channel)
 
             channel_rf = channel.replace("-", ".") if channel else None
             self._state[tv.id] = TvStatus(ok, now, err, channel, channel_rf)
+            log.warning("sweep %s stored: reachable=%s channel=%r rf=%r", tv.id, ok, channel, channel_rf)
 
     async def _probe(self, tv: TV) -> tuple[bool, str | None, str | None]:
         if tv.type == "tbd":
