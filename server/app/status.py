@@ -86,9 +86,27 @@ class StatusMonitor:
         now = time.time()
         for tv, res in zip(tvs, results):
             if isinstance(res, Exception):
-                self._state[tv.id] = TvStatus(False, now, str(res))
-                continue
-            ok, err, channel = res
+                ok, err, channel = False, str(res), None
+            else:
+                ok, err, channel = res
+
+            prev = self._state.get(tv.id)
+
+            # Debounce: a TV that was reachable in the previous sweep gets
+            # one free pass on a transient failure. Vizios in particular go
+            # briefly unresponsive while they're tuning, and we don't want
+            # the dot to flash red for one cycle every time.
+            if not ok and prev is not None and prev.reachable \
+                    and now - prev.last_check_ts < self._interval * 2.5:
+                ok = True
+                err = None  # we're papering over this one
+
+            # Preserve last-known channel if this sweep didn't get a fresh
+            # read — same flicker-prevention for the "now playing" row.
+            if channel is None and prev is not None and prev.channel \
+                    and now - prev.last_check_ts < self._interval * 4:
+                channel = prev.channel
+
             channel_rf = channel.replace("-", ".") if channel else None
             self._state[tv.id] = TvStatus(ok, now, err, channel, channel_rf)
 
@@ -105,7 +123,11 @@ class StatusMonitor:
                 ch = await self._roku_channel(tv.url)
                 return True, None, ch
             if tv.type == "vizio":
-                async with httpx.AsyncClient(timeout=self._timeout, verify=False) as c:
+                # Vizio's HTTPS API is reliably slow (~1-2 sec) and goes
+                # briefly unresponsive while tuning. Give it more slack
+                # than the other probes.
+                vizio_timeout = max(self._timeout * 2, 6.0)
+                async with httpx.AsyncClient(timeout=vizio_timeout, verify=False) as c:
                     r = await c.get(f"{tv.url.rstrip('/')}/state/device/power_mode/")
                 # 401 (no auth) still proves reachability; just not authed
                 if r.status_code not in (200, 401):
