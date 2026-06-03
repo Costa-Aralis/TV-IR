@@ -16,30 +16,32 @@ from typing import Any
 import httpx
 
 
-# CODESET / CODE pairs for the keys we need.
-#   CODESET 11 = power (0=OFF, 1=ON, 2=TOGGLE) — do NOT put digits here, they
-#                collide with the power codes (sending "0" would turn the TV off).
-#   CODESET 12 = number pad (0..9 on CODE 0..9, DASH on CODE 10).
+# CODESET / CODE pairs for the keys we need. Reference: pyvizio.const.
+#   CODESET 11 = numeric / power.
+#     CODE 0..2  = power off / on / toggle
+#     CODE 4..13 = number pad 0..9
+#     CODE 14    = DASH (subchannel separator)
 #   CODESET  5 = volume / mute.
 #   CODESET  8 = channel up / down / previous.
-#   CODESET  4 = OK / BACK / MENU.
-#   CODESET  3 = D-pad arrows.
+#   CODESET  3 = D-pad (incl. OK on CODE 2 — NOT codeset 4).
+#   CODESET  4 = BACK / HOME / MENU / INFO.
+#   CODESET  7 = input cycling.
 _KEYS: dict[str, tuple[int, int]] = {
     # logical key:  (codeset, code)
-    "0":            (12, 0),
-    "1":            (12, 1),
-    "2":            (12, 2),
-    "3":            (12, 3),
-    "4":            (12, 4),
-    "5":            (12, 5),
-    "6":            (12, 6),
-    "7":            (12, 7),
-    "8":            (12, 8),
-    "9":            (12, 9),
-    "Dot":          (12, 10),   # DASH — the subchannel separator
-    "Dash":         (12, 10),
-    "Enter":        (4,  0),    # OK
-    "Ok":           (4,  0),
+    "0":            (11, 4),
+    "1":            (11, 5),
+    "2":            (11, 6),
+    "3":            (11, 7),
+    "4":            (11, 8),
+    "5":            (11, 9),
+    "6":            (11, 10),
+    "7":            (11, 11),
+    "8":            (11, 12),
+    "9":            (11, 13),
+    "Dot":          (11, 14),   # DASH — subchannel separator
+    "Dash":         (11, 14),
+    "Enter":        (3,  2),    # DPAD_OK (NOT codeset 4 — that's INFO/BACK/HOME)
+    "Ok":           (3,  2),
     "Vol_up":       (5,  1),
     "Vol_dn":       (5,  0),
     "Mute":         (5,  3),
