@@ -46,9 +46,16 @@ class Dispatcher:
         # standby (Vizio SmartCast, LG webOS, many Samsungs) so a plain API
         # "PowerOn" call would never reach them. The magic packet is harmless
         # if the TV is already awake.
+        #
+        # Aim it at the TV's subnet-directed broadcast (e.g. 172.16.20.255)
+        # so on a multi-NIC LXC the packet goes out the right interface.
         if state == "on" and tv.mac:
+            host_ip = _host_from_url(tv.url)
             try:
-                wol.send(tv.mac)
+                if host_ip:
+                    wol.send_to_host(tv.mac, host_ip)
+                else:
+                    wol.send(tv.mac)
             except wol.WolError as exc:
                 raise DispatchError(f"wol: {exc}") from exc
 
@@ -195,3 +202,17 @@ class Dispatcher:
 
     def _adb(self, tv: TV) -> AdbClient:
         return AdbClient(tv.url, self._adb_key_path, timeout=self._timeout)
+
+
+def _host_from_url(url: str) -> str | None:
+    """Extract the host IP from a tv.url like 'https://172.16.20.40:7345' or
+    'http://1.2.3.4:8060' or '172.16.20.49' or '172.16.20.42:5555'."""
+    s = url
+    for prefix in ("https://", "http://", "ws://", "wss://"):
+        if s.startswith(prefix):
+            s = s[len(prefix):]
+            break
+    s = s.split("/", 1)[0]
+    host, _, _port = s.partition(":")
+    host = host.strip()
+    return host or None
