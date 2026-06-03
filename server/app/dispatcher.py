@@ -34,6 +34,12 @@ class Dispatcher:
         self._pairings = pairings
         self._adb_key_path = adb_key_path
         self._timeout = timeout
+        self._monitor = None  # wired in by main lifespan; see set_monitor
+
+    def set_monitor(self, monitor) -> None:
+        """Attach the StatusMonitor so we can push channel updates the moment
+        a tune lands, instead of waiting for the next 8-sec sweep."""
+        self._monitor = monitor
 
     # ---- Public API ----
     async def power(self, tv_id: str, state: str = "toggle") -> None:
@@ -121,8 +127,8 @@ class Dispatcher:
         tv = self._registry.get(tv_id)
 
         # Vizio V-series firmware doesn't expose number keys via SmartCast.
-        # Walk CHANNEL_UP while polling current_channel until we hit the RF
-        # target (worst case 7 steps since only 8 channels are scanned).
+        # Walk CHANNEL_UP based on the index delta in the scan list — quick
+        # and deterministic with only 8 scanned channels.
         if tv.type == "vizio":
             rf = self._registry.preset_rf_channel(preset_num)
             if not rf:
@@ -135,6 +141,10 @@ class Dispatcher:
                 raise DispatchError(str(exc)) from exc
             if not reached:
                 raise DispatchError(f"tune to {rf} didn't land (still wrong channel)")
+            # Push the new channel into the status cache so the UI updates
+            # on the next poll without waiting for the slow server sweep.
+            if self._monitor is not None:
+                self._monitor.set_channel(tv.id, rf.replace(".", "-"))
             return
 
         # Roku TVs need to be on the Live TV input before digit keys mean

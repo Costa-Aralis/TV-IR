@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
     )
     monitor = StatusMonitor(reg)
     monitor.set_pairings(pairings)
+    dispatcher.set_monitor(monitor)
     scheduler = Scheduler(load_jobs(reg.schedule), dispatcher, reg)
 
     app.state.registry = reg

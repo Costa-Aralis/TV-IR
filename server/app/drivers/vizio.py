@@ -133,7 +133,7 @@ class VizioClient:
                 result.append(token)
         return result
 
-    async def tune_to(self, target: str, *, step_pause: float = 0.5) -> bool:
+    async def tune_to(self, target: str, *, step_pause: float = 0.8) -> bool:
         """Reach `target` channel deterministically via the right number of
         CHANNEL_UP presses.
 

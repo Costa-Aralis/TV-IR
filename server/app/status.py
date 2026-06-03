@@ -77,6 +77,27 @@ class StatusMonitor:
         """Wire in the Pairings store so we can read auth-gated channel info."""
         self._pairings = pairings
 
+    def set_channel(self, tv_id: str, channel: str | None) -> None:
+        """Update the cached channel for a TV without waiting for a sweep.
+
+        The dispatcher calls this right after a successful tune so the UI's
+        "now playing" reflects reality on the next 5-sec poll instead of
+        waiting up to 8 sec for the next server sweep (and only then if
+        that sweep's channel fetch succeeded).
+        """
+        import time as _t
+        prev = self._state.get(tv_id)
+        if prev is None:
+            return
+        channel_rf = channel.replace("-", ".") if channel else None
+        self._state[tv_id] = TvStatus(
+            reachable=True,
+            last_check_ts=_t.time(),
+            last_error=None,
+            channel=channel,
+            channel_rf=channel_rf,
+        )
+
     async def _sweep(self) -> None:
         tvs = list(self._registry.tvs)  # snapshot once so the zip below aligns
         results = await asyncio.gather(
@@ -102,9 +123,10 @@ class StatusMonitor:
                 err = None  # we're papering over this one
 
             # Preserve last-known channel if this sweep didn't get a fresh
-            # read — same flicker-prevention for the "now playing" row.
-            if channel is None and prev is not None and prev.channel \
-                    and now - prev.last_check_ts < self._interval * 4:
+            # read. Keep it indefinitely until a newer value arrives or the
+            # TV goes truly unreachable — channels endpoint can flake for
+            # minutes at a time without the TV actually changing state.
+            if channel is None and prev is not None and prev.channel:
                 channel = prev.channel
 
             channel_rf = channel.replace("-", ".") if channel else None
