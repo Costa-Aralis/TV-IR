@@ -33,6 +33,19 @@ def _adb_key_path() -> Path:
 
 async def pair_vizio(tv: TV, pairings: Pairings) -> None:
     print(f"\n[{tv.id}] Vizio SmartCast pairing")
+
+    existing = pairings.get(tv.id).get("auth_token")
+    if existing:
+        print(f"  already paired — enabling Quick Start so WoL wakes it cleanly.")
+        client = VizioClient(tv.url, auth_token=existing)
+        try:
+            changed = await client.set_quick_start()
+            print("  ✓ Quick Start now enabled" if changed else "  ✓ Quick Start already on")
+        except VizioError as exc:
+            print(f"  ⚠ Quick Start setup failed: {exc}")
+            print(f"    (set it manually: Menu → System → Power Mode → Quick Start)")
+        return
+
     print(f"  url: {tv.url}")
     print("  → Watch the TV. A 4-digit PIN should appear in a few seconds.")
 
@@ -57,6 +70,15 @@ async def pair_vizio(tv: TV, pairings: Pairings) -> None:
 
     pairings.set(tv.id, auth_token=token)
     print(f"  ✓ paired, token saved ({len(token)} chars)")
+
+    # Now flip Power Mode → Quick Start so WoL actually wakes this TV from off.
+    try:
+        changed = await client.set_quick_start()
+        print("  ✓ Quick Start enabled (WoL will now wake the TV)" if changed
+              else "  ✓ Quick Start was already on")
+    except VizioError as exc:
+        print(f"  ⚠ Quick Start setup failed: {exc}")
+        print(f"    Set it manually on the TV: Menu → System → Power Mode → Quick Start")
 
 
 async def pair_lg(tv: TV, pairings: Pairings) -> None:

@@ -141,6 +141,42 @@ class VizioClient:
         self._token = token
         return token
 
+    # ---- Settings ----
+    async def get_power_mode(self) -> str | None:
+        """Return the TV's current power mode (e.g. 'Quick Start' or 'Eco Mode')."""
+        data = await self._get("/menu_native/dynamic/tv_settings/system/power_mode")
+        items = data.get("ITEMS") or []
+        if not items:
+            return None
+        return items[0].get("VALUE")
+
+    async def set_quick_start(self) -> bool:
+        """Set Power Mode → Quick Start so the TV's WiFi stays awake in
+        standby (required for WoL to actually wake the set).
+
+        Returns True if changed, False if already Quick Start. Raises
+        VizioError on auth or protocol failure.
+        """
+        data = await self._get("/menu_native/dynamic/tv_settings/system/power_mode")
+        items = data.get("ITEMS") or []
+        if not items:
+            raise VizioError("power_mode menu item not found on this TV")
+        item = items[0]
+        if (item.get("VALUE") or "").lower() in ("quick start", "quickstart"):
+            return False
+        body = {
+            "REQUEST": "MODIFY",
+            "VALUE": "Quick Start",
+            "HASHVAL": item.get("HASHVAL"),
+        }
+        result = await self._put(
+            "/menu_native/dynamic/tv_settings/system/power_mode", body
+        )
+        status = (result.get("STATUS") or {}).get("RESULT")
+        if status != "SUCCESS":
+            raise VizioError(f"set_quick_start: {result}")
+        return True
+
     # ---- HTTP helpers ----
     async def _get(self, path: str) -> dict[str, Any]:
         return await self._request("GET", path, None, auth=True)
