@@ -111,7 +111,7 @@ async def apply_event(event_id: str, request: Request) -> dict:
 def _resolve_targets(registry, target: str | list[str]):
     """`target` can be 'all', a zone name, a list of TV ids, or a single id."""
     if target == "all":
-        return [tv for tv in registry.tvs if tv.type != "tbd"]
+        return [tv for tv in registry.tvs if tv.type not in ("tbd", "defective")]
     if isinstance(target, list):
         wanted = set(target)
         return [tv for tv in registry.tvs if tv.id in wanted]
@@ -137,7 +137,7 @@ async def _broadcast(request: Request, action, *, zone: str | None = None) -> di
     registry = request.app.state.registry
     dispatcher = request.app.state.dispatcher
 
-    targets = [tv for tv in registry.tvs if tv.type != "tbd"]
+    targets = [tv for tv in registry.tvs if tv.type not in ("tbd", "defective")]
     if zone is not None:
         targets = [tv for tv in targets if tv.zone == zone]
         if not targets:

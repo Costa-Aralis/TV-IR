@@ -46,6 +46,8 @@ class Dispatcher:
         tv = self._registry.get(tv_id)
         if tv.type == "tbd":
             raise DispatchError(f"{tv.id} is TBD")
+        if tv.type == "defective":
+            raise DispatchError(f"{tv.id} is marked defective — replace the TV")
 
         # Universal: WoL fires first whenever we're waking a TV that has a
         # `mac:` configured. Most modern smart TVs drop their WiFi in deep
@@ -212,6 +214,15 @@ class Dispatcher:
             await self._send_logical(tv, step)
             await asyncio.sleep(gap)
 
+        # Push the channel into the status cache so the tile updates without
+        # waiting for a sweep (and without us needing to query the TV — which
+        # for Android/Fire TV would require parsing dumpsys output).
+        if self._monitor is not None:
+            rf = self._registry.preset_rf_channel(preset_num)
+            if rf:
+                # Hisense / Vizio use '-' separator; the monitor normalizes.
+                self._monitor.set_channel(tv.id, rf.replace(".", "-"))
+
     # ---- Internals ----
     async def _send_logical(self, tv: TV, logical: str) -> None:
         button = tv.key_map.get(logical, logical)
@@ -248,6 +259,8 @@ class Dispatcher:
                 return
             if tv.type == "tbd":
                 raise DispatchError(f"{tv.id} is TBD")
+            if tv.type == "defective":
+                raise DispatchError(f"{tv.id} is marked defective — replace the TV")
             raise DispatchError(f"unknown tv.type: {tv.type!r}")
         except (VizioError, LgError, AdbError, RokuError, IRNodeError, KeyError) as exc:
             raise DispatchError(str(exc)) from exc

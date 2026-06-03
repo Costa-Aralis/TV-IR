@@ -16,12 +16,13 @@ const TYPE_BADGE: Record<TV["type"], string> = {
   firetv: "Fire TV",
   ir: "IR",
   tbd: "—",
+  defective: "Defective",
 };
 
 export function TvTile({ tv, presets, onAction }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const disabled = tv.type === "tbd";
+  const disabled = tv.type === "tbd" || tv.type === "defective";
 
   const run = async (label: string, action: () => Promise<unknown>, toast: string) => {
     if (disabled || busy) return;
@@ -100,7 +101,8 @@ export function TvTile({ tv, presets, onAction }: Props) {
       </div>
 
       {error && <div className="tile__error" title={error}>!</div>}
-      {disabled && <div className="tile__overlay">TBD</div>}
+      {tv.type === "tbd" && <div className="tile__overlay">TBD</div>}
+      {tv.type === "defective" && <div className="tile__overlay tile__overlay--defective">DEFECTIVE</div>}
     </div>
   );
 }

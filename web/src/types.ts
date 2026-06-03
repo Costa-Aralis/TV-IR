@@ -5,7 +5,8 @@ export type TVType =
   | "lg"
   | "androidtv"
   | "firetv"
-  | "tbd";
+  | "tbd"
+  | "defective";
 
 export interface Preset {
   num: number;

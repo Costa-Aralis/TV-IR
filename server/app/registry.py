@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 
 KeyStep = str | dict  # either "Power" or {"delay_ms": 200}
 
-TVType = Literal["ir", "roku", "vizio", "lg", "androidtv", "firetv", "tbd"]
+TVType = Literal["ir", "roku", "vizio", "lg", "androidtv", "firetv", "tbd", "defective"]
 
 
 class TV(BaseModel):

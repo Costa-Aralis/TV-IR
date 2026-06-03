@@ -135,6 +135,8 @@ class StatusMonitor:
     async def _probe(self, tv: TV) -> tuple[bool, str | None, str | None]:
         if tv.type == "tbd":
             return False, "tbd", None
+        if tv.type == "defective":
+            return False, "defective", None
         try:
             if tv.type == "roku":
                 async with httpx.AsyncClient(timeout=self._timeout) as c:

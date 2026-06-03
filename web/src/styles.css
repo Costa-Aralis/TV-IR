@@ -339,6 +339,11 @@ button:not(:disabled):active { transform: scale(0.98); }
   letter-spacing: 2px;
   pointer-events: none;
 }
+.tile__overlay--defective {
+  background: rgba(40, 8, 8, .82);
+  color: var(--red);
+  border: 1px solid var(--red);
+}
 
 /* ---- Toast ---- */
 .toast {
