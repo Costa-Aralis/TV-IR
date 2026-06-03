@@ -40,10 +40,32 @@ class Dispatcher:
         tv = self._registry.get(tv_id)
         if tv.type == "tbd":
             raise DispatchError(f"{tv.id} is TBD")
+
+        # Universal: WoL fires first whenever we're waking a TV that has a
+        # `mac:` configured. Most modern smart TVs drop their WiFi in deep
+        # standby (Vizio SmartCast, LG webOS, many Samsungs) so a plain API
+        # "PowerOn" call would never reach them. The magic packet is harmless
+        # if the TV is already awake.
+        if state == "on" and tv.mac:
+            try:
+                wol.send(tv.mac)
+            except wol.WolError as exc:
+                raise DispatchError(f"wol: {exc}") from exc
+
         if tv.type == "vizio":
-            key = {"on": "PowerOn", "off": "PowerOff", "toggle": "Power"}.get(state, "Power")
+            if state == "on":
+                # WoL above wakes it; try the SmartCast PowerOn too in case
+                # the TV's already up — best-effort, ignore failure since
+                # WoL alone is usually enough.
+                try:
+                    await self._send_logical(tv, "PowerOn")
+                except DispatchError:
+                    pass
+                return
+            key = {"off": "PowerOff", "toggle": "Power"}.get(state, "Power")
             await self._send_logical(tv, key)
             return
+
         if tv.type == "lg":
             if state == "off":
                 lg = self._lg(tv)
@@ -53,28 +75,34 @@ class Dispatcher:
                     await lg.close()
                 return
             if state == "on":
-                # webOS drops WiFi in standby — magic packet is the only way in.
-                if tv.mac:
-                    try:
-                        wol.send(tv.mac)
-                    except wol.WolError as exc:
-                        raise DispatchError(f"wol: {exc}") from exc
-                else:
+                if not tv.mac:
                     raise DispatchError(
                         f"{tv.id}: 'on' requires `mac:` in tvs.yaml for WoL"
                     )
-                return
+                return  # WoL above handles it
             # toggle: sending POWER on the WS only works while TV is on.
             await self._send_logical(tv, "Power")
             return
-        if tv.type == "androidtv" or tv.type == "firetv":
-            key = {"on": "PowerOn", "off": "PowerOff", "toggle": "Power"}.get(state, "Power")
+
+        if tv.type in ("androidtv", "firetv"):
+            if state == "on":
+                # WoL above; KEYCODE_WAKEUP brings it the rest of the way if
+                # the box was awake-on-network in light standby.
+                try:
+                    await self._send_logical(tv, "PowerOn")
+                except DispatchError:
+                    pass
+                return
+            key = {"off": "PowerOff", "toggle": "Power"}.get(state, "Power")
             await self._send_logical(tv, key)
             return
+
         if tv.type == "roku":
+            # Roku ECP works in "fast start" standby; WoL above is insurance.
             key = {"on": "PowerOn", "off": "PowerOff", "toggle": "Power"}.get(state, "Power")
             await self._send_logical(tv, key)
             return
+
         # IR
         await self._send_logical(tv, "Power")
 
