@@ -16,25 +16,30 @@ from typing import Any
 import httpx
 
 
-# CODESET / CODE pairs for the keys we need. Most TV models accept these on
-# CODESET 11 (for digits), CODESET 4 (Enter / OK), CODESET 8 (channel),
-# CODESET 11 CODE 1 / 0 (POWER_ON / POWER_OFF).
+# CODESET / CODE pairs for the keys we need.
+#   CODESET 11 = power (0=OFF, 1=ON, 2=TOGGLE) — do NOT put digits here, they
+#                collide with the power codes (sending "0" would turn the TV off).
+#   CODESET 12 = number pad (0..9 on CODE 0..9, DASH on CODE 10).
+#   CODESET  5 = volume / mute.
+#   CODESET  8 = channel up / down / previous.
+#   CODESET  4 = OK / BACK / MENU.
+#   CODESET  3 = D-pad arrows.
 _KEYS: dict[str, tuple[int, int]] = {
     # logical key:  (codeset, code)
-    "0":            (11, 0),
-    "1":            (11, 1),
-    "2":            (11, 2),
-    "3":            (11, 3),
-    "4":            (11, 4),
-    "5":            (11, 5),
-    "6":            (11, 6),
-    "7":            (11, 7),
-    "8":            (11, 8),
-    "9":            (11, 9),
-    "Enter":        (4,  0),
+    "0":            (12, 0),
+    "1":            (12, 1),
+    "2":            (12, 2),
+    "3":            (12, 3),
+    "4":            (12, 4),
+    "5":            (12, 5),
+    "6":            (12, 6),
+    "7":            (12, 7),
+    "8":            (12, 8),
+    "9":            (12, 9),
+    "Dot":          (12, 10),   # DASH — the subchannel separator
+    "Dash":         (12, 10),
+    "Enter":        (4,  0),    # OK
     "Ok":           (4,  0),
-    "Dot":          (11, 11),   # Vizio "DASH" / "-" subchannel separator
-    "Dash":         (11, 11),
     "Vol_up":       (5,  1),
     "Vol_dn":       (5,  0),
     "Mute":         (5,  3),
