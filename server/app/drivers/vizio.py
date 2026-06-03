@@ -133,47 +133,54 @@ class VizioClient:
                 result.append(token)
         return result
 
-    async def tune_to(self, target: str, *, step_pause: float = 0.8) -> bool:
-        """Reach `target` channel deterministically via the right number of
-        CHANNEL_UP presses.
+    async def tune_to(self, target: str, *, step_pause: float = 0.8,
+                      max_steps: int = 60) -> bool:
+        """Reach `target` channel via CHANNEL_UP, polling current_channel
+        between steps to know when to stop.
 
-        V-series SmartCast firmware doesn't expose digit keys and
-        current_channel API updates lag behind the actual tuner. Polling
-        is unreliable — but the scan database (Skip Channel menu) tells us
-        the exact ordered cycle, so we compute the delta and fire that
-        many keypresses, no polling needed.
+        Originally this used the Skip Channel menu to compute an exact step
+        count, but on most V-series firmware CHANNEL_UP cycles ALL scanned
+        channels (often 600+ if broadcast antennas are present), not just
+        the unskipped ones. So the menu-derived step count would overshoot
+        into broadcast channels.
 
-        target accepts '30.2' or '30-2'.
+        Robust algorithm:
+          - Read current channel.
+          - Channel-up + wait + read current.
+          - If we hit the target, stop.
+          - If we ever see a previously-seen channel again (full cycle wrap),
+            give up — the target isn't actually in the scan database.
+          - Max 60 steps as a safety cap (60 × 0.8 = 48 sec worst case).
+
+        For a clean fast tune, the TV needs to be re-scanned in Antenna
+        mode with ONLY the Thor coax connected. With 8 channels in scan,
+        worst case becomes 7 steps = ~6 seconds.
         """
         import asyncio
         target_h = target.replace(".", "-")
 
-        try:
-            channels = await self.get_channel_list()
-        except VizioError:
-            return False
-        if not channels:
-            return False
-
         current = await self.get_current_channel()
-        try:
-            cur_idx = channels.index(current) if current else 0
-        except ValueError:
-            cur_idx = 0  # current isn't in the list — start from the top
-        try:
-            tgt_idx = channels.index(target_h)
-        except ValueError:
-            return False  # target isn't in the scanned list
-
-        n = len(channels)
-        steps = (tgt_idx - cur_idx) % n
-        if steps == 0:
+        if current == target_h:
             return True
 
-        for _ in range(steps):
+        seen: set[str] = {current} if current else set()
+        last = current
+
+        for _ in range(max_steps):
             await self.keypress(8, 1)  # CHANNEL_UP
             await asyncio.sleep(step_pause)
-        return True
+            now = await self.get_current_channel()
+            if now == target_h:
+                return True
+            if now is None or now == last:
+                # tuner hasn't settled — try again, don't add to seen
+                continue
+            if now in seen:
+                # full cycle wrap — target isn't in the scanned list
+                return False
+            seen.add(now)
+            last = now
+        return False
 
     async def healthy(self) -> bool:
         try:
