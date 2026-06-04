@@ -333,9 +333,17 @@ class VizioClient:
         current = raw_cur.get("NAME") if isinstance(raw_cur, dict) else (raw_cur or "")
         if current == tuner_value:
             return False
+        # Mirror the shape we just read: V-series firmware that returns VALUE
+        # as a dict on GET also requires a dict on MODIFY, with NAME (and
+        # any METADATA we saw, preserved). Plain string was rejected with
+        # STATUS.RESULT=FAILURE.
+        if isinstance(raw_cur, dict):
+            new_value: Any = {**raw_cur, "NAME": tuner_value}
+        else:
+            new_value = tuner_value
         body = {
             "REQUEST": "MODIFY",
-            "VALUE": tuner_value,
+            "VALUE": new_value,
             "HASHVAL": cur_item.get("HASHVAL"),
         }
         result = await self._put(
