@@ -169,6 +169,12 @@ class Dispatcher:
             token = self._pairings.get(tv.id).get("auth_token")
             client = VizioClient(tv.url, auth_token=token, timeout=self._timeout)
             try:
+                # After a cold power-on the TV is on SmartCast Home, where
+                # D-pad navigation walks home tiles instead of channels.
+                # Flip to the tuner input first; tune_to then has a path.
+                switched = await client.select_tuner_input()
+                if switched:
+                    await asyncio.sleep(2.0)
                 reached = await client.tune_to(rf)
             except VizioError as exc:
                 raise DispatchError(str(exc)) from exc

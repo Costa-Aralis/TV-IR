@@ -282,6 +282,58 @@ class VizioClient:
             raise VizioError(f"set_quick_start: {result}")
         return True
 
+    # ---- Input selection ----
+    async def get_current_input(self) -> str | None:
+        data = await self._get("/menu_native/dynamic/tv_settings/devices/current_input")
+        items = data.get("ITEMS") or []
+        if items:
+            return items[0].get("VALUE")
+        return None
+
+    async def _find_tuner_input_value(self) -> str | None:
+        """Walk the inputs list and return the display name of the antenna
+        tuner. CNAME for the tuner is normally 'tuner' (sometimes 'tv'); the
+        VALUE is the user-visible name like 'TV' that we have to send back."""
+        data = await self._get("/menu_native/dynamic/tv_settings/devices/name_input")
+        for item in data.get("ITEMS") or []:
+            cname = (item.get("CNAME") or "").lower()
+            value = item.get("VALUE") or ""
+            if cname in ("tuner", "tv", "antenna") or value.upper() == "TV":
+                return value
+        return None
+
+    async def select_tuner_input(self) -> bool:
+        """Switch to the antenna tuner input. Returns True if a switch was
+        actually made; False if already on the tuner.
+
+        After a cold power-on the Vizio lands on SmartCast Home, where
+        tune_to() can't navigate the antenna channel list with the D-pad —
+        the D-pad walks home-screen tiles instead. Switching to the tuner
+        input first restores the in-tuner D-pad-walks-channels behavior.
+        """
+        tuner_value = await self._find_tuner_input_value()
+        if not tuner_value:
+            tuner_value = "TV"  # firmware-agnostic fallback
+        cur_data = await self._get("/menu_native/dynamic/tv_settings/devices/current_input")
+        cur_items = cur_data.get("ITEMS") or []
+        if not cur_items:
+            raise VizioError("current_input menu item not found")
+        cur_item = cur_items[0]
+        if (cur_item.get("VALUE") or "") == tuner_value:
+            return False
+        body = {
+            "REQUEST": "MODIFY",
+            "VALUE": tuner_value,
+            "HASHVAL": cur_item.get("HASHVAL"),
+        }
+        result = await self._put(
+            "/menu_native/dynamic/tv_settings/devices/current_input", body
+        )
+        status = (result.get("STATUS") or {}).get("RESULT")
+        if status != "SUCCESS":
+            raise VizioError(f"select_tuner_input: {result}")
+        return True
+
     # ---- HTTP helpers ----
     async def _get(self, path: str) -> dict[str, Any]:
         return await self._request("GET", path, None, auth=True)
