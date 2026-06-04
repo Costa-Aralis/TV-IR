@@ -312,8 +312,7 @@ class VizioClient:
                 return value
         return None
 
-    async def select_tuner_input(self, *, max_cycles: int = 8,
-                                  step_pause: float = 1.4) -> bool:
+    async def select_tuner_input(self) -> bool:
         """Switch to the antenna tuner input. Returns True if a switch was
         actually made; False if already on the tuner.
 
@@ -322,26 +321,62 @@ class VizioClient:
         the D-pad walks home-screen tiles instead. Switching to the tuner
         input first restores the in-tuner D-pad-walks-channels behavior.
 
-        Implementation: MODIFY current_input is rejected by V-series firmware
-        (that endpoint is for renaming, not switching). The reliable path is
-        the remote key INPUT_TOGGLE (CODESET 7 CODE 1), which cycles through
-        physical inputs and SmartCast Home. We send it once at a time and
-        read current_input back; stop the moment we see TV.
+        Implementation: V-series MODIFY of current_input is rejected by the
+        firmware (that endpoint is for renaming). Pressing INPUT opens an
+        on-screen picker that does NOT auto-confirm — successive INPUT
+        presses just move the highlight further down. So we open the picker
+        once, drive the highlight to the top with a flood of UPs, then send
+        exactly `tv_idx` DOWNs to land on the tuner, then OK.
         """
         import asyncio
-        tuner_value = await self._find_tuner_input_value() or "TV"
+        # 1. Find the tuner's position in the inputs list.
+        data = await self._get("/menu_native/dynamic/tv_settings/devices/name_input")
+        items = data.get("ITEMS") or []
+        names: list[str] = []
+        tv_idx: int = -1
+        for i, item in enumerate(items):
+            raw = item.get("VALUE")
+            name = raw.get("NAME") if isinstance(raw, dict) else (raw or "")
+            cname = (item.get("CNAME") or "").lower()
+            names.append(name)
+            if tv_idx < 0 and (cname in ("tuner", "tv", "antenna")
+                               or (name or "").upper() == "TV"):
+                tv_idx = i
+        if tv_idx < 0:
+            raise VizioError(f"no tuner input found in {names!r}")
+        tuner_value = names[tv_idx]
+
+        # 2. Already on it?
         current = await self.get_current_input()
         if current and current.upper() == tuner_value.upper():
             return False
-        for _ in range(max_cycles):
-            await self.keypress(7, 1)  # INPUT_TOGGLE
-            await asyncio.sleep(step_pause)
-            current = await self.get_current_input()
-            if current and current.upper() == tuner_value.upper():
-                return True
+
+        # 3. Open the picker.
+        await self.keypress(7, 1)  # INPUT
+        await asyncio.sleep(1.0)
+
+        # 4. Slam the highlight to the top — UP more than the list length so
+        # we're guaranteed at index 0 even if it started mid-list.
+        for _ in range(len(names) + 2):
+            await self.keypress(3, 8)  # D-pad UP
+            await asyncio.sleep(0.18)
+
+        # 5. Walk DOWN exactly tv_idx times to land on the tuner.
+        for _ in range(tv_idx):
+            await self.keypress(3, 0)  # D-pad DOWN
+            await asyncio.sleep(0.22)
+
+        # 6. Confirm.
+        await self.keypress(3, 2)  # OK / ENTER
+        await asyncio.sleep(2.0)
+
+        # 7. Verify.
+        current = await self.get_current_input()
+        if current and current.upper() == tuner_value.upper():
+            return True
         raise VizioError(
-            f"could not reach tuner input after {max_cycles} cycles "
-            f"(last current={current!r}, looking for {tuner_value!r})"
+            f"select_tuner_input: landed on {current!r}, expected {tuner_value!r} "
+            f"(inputs list: {names!r}, tv_idx={tv_idx})"
         )
 
     # ---- HTTP helpers ----
