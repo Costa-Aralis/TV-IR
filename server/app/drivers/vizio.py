@@ -286,18 +286,28 @@ class VizioClient:
     async def get_current_input(self) -> str | None:
         data = await self._get("/menu_native/dynamic/tv_settings/devices/current_input")
         items = data.get("ITEMS") or []
-        if items:
-            return items[0].get("VALUE")
-        return None
+        if not items:
+            return None
+        raw = items[0].get("VALUE")
+        if isinstance(raw, dict):
+            return raw.get("NAME")
+        return raw
 
     async def _find_tuner_input_value(self) -> str | None:
         """Walk the inputs list and return the display name of the antenna
         tuner. CNAME for the tuner is normally 'tuner' (sometimes 'tv'); the
-        VALUE is the user-visible name like 'TV' that we have to send back."""
+        VALUE is the user-visible name like 'TV' that we have to send back.
+
+        VALUE shape varies by firmware: some TVs return a plain string, others
+        return a dict like {'NAME':'TV','METADATA':...}."""
         data = await self._get("/menu_native/dynamic/tv_settings/devices/name_input")
         for item in data.get("ITEMS") or []:
             cname = (item.get("CNAME") or "").lower()
-            value = item.get("VALUE") or ""
+            raw = item.get("VALUE")
+            if isinstance(raw, dict):
+                value = raw.get("NAME") or ""
+            else:
+                value = raw or ""
             if cname in ("tuner", "tv", "antenna") or value.upper() == "TV":
                 return value
         return None
@@ -319,7 +329,9 @@ class VizioClient:
         if not cur_items:
             raise VizioError("current_input menu item not found")
         cur_item = cur_items[0]
-        if (cur_item.get("VALUE") or "") == tuner_value:
+        raw_cur = cur_item.get("VALUE")
+        current = raw_cur.get("NAME") if isinstance(raw_cur, dict) else (raw_cur or "")
+        if current == tuner_value:
             return False
         body = {
             "REQUEST": "MODIFY",
