@@ -34,6 +34,10 @@ class Dispatcher:
         self._pairings = pairings
         self._adb_key_path = adb_key_path
         self._timeout = timeout
+        # Pending Vizio "switch to tuner" tasks, keyed by tv id. Tracked so
+        # a second power-on press cancels the previous task instead of
+        # queuing two pickers that race the on-screen UI.
+        self._vizio_tuner_tasks: dict[str, asyncio.Task] = {}
         self._monitor = None  # wired in by main lifespan; see set_monitor
 
     def set_monitor(self, monitor) -> None:
@@ -80,7 +84,7 @@ class Dispatcher:
                 # picker to the antenna tuner so presets are instant. Keeps
                 # the API response fast (doesn't block on the 4-5 sec picker
                 # dance) and stays robust to TVs that wake straight to TV.
-                asyncio.create_task(self._vizio_switch_to_tuner_later(tv))
+                self._schedule_vizio_tuner_switch(tv)
                 return
             key = {"off": "PowerOff", "toggle": "Power"}.get(state, "Power")
             await self._send_logical(tv, key)
@@ -88,7 +92,7 @@ class Dispatcher:
             # bistable toggle on V-series). Schedule the tuner switch too;
             # if the TV ended up off it'll fail quietly inside the task.
             if state == "toggle":
-                asyncio.create_task(self._vizio_switch_to_tuner_later(tv))
+                self._schedule_vizio_tuner_switch(tv)
             return
 
         if tv.type == "lg":
@@ -299,6 +303,17 @@ class Dispatcher:
 
     def _adb(self, tv: TV) -> AdbClient:
         return AdbClient(tv.url, self._adb_key_path, timeout=self._timeout)
+
+    def _schedule_vizio_tuner_switch(self, tv: TV) -> None:
+        """Cancel any pending tuner-switch for this TV, then schedule a new one.
+        Dedup prevents a second power-press from queuing a parallel picker
+        run that races the first."""
+        prev = self._vizio_tuner_tasks.get(tv.id)
+        if prev is not None and not prev.done():
+            prev.cancel()
+        self._vizio_tuner_tasks[tv.id] = asyncio.create_task(
+            self._vizio_switch_to_tuner_later(tv)
+        )
 
     async def _vizio_switch_to_tuner_later(self, tv: TV, *, delay: float = 10.0) -> None:
         """Background task: after a Vizio wake, wait for the set to finish
