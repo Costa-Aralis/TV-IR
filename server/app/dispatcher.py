@@ -76,9 +76,19 @@ class Dispatcher:
                     await self._send_logical(tv, "PowerOn")
                 except DispatchError:
                     pass
+                # Fire-and-forget: a few seconds after wake, walk the input
+                # picker to the antenna tuner so presets are instant. Keeps
+                # the API response fast (doesn't block on the 4-5 sec picker
+                # dance) and stays robust to TVs that wake straight to TV.
+                asyncio.create_task(self._vizio_switch_to_tuner_later(tv))
                 return
             key = {"off": "PowerOff", "toggle": "Power"}.get(state, "Power")
             await self._send_logical(tv, key)
+            # toggle could have just turned the TV ON (POWER acts as a
+            # bistable toggle on V-series). Schedule the tuner switch too;
+            # if the TV ended up off it'll fail quietly inside the task.
+            if state == "toggle":
+                asyncio.create_task(self._vizio_switch_to_tuner_later(tv))
             return
 
         if tv.type == "lg":
@@ -169,12 +179,8 @@ class Dispatcher:
             token = self._pairings.get(tv.id).get("auth_token")
             client = VizioClient(tv.url, auth_token=token, timeout=self._timeout)
             try:
-                # After a cold power-on the TV is on SmartCast Home, where
-                # D-pad navigation walks home tiles instead of channels.
-                # Flip to the tuner input first; tune_to then has a path.
-                switched = await client.select_tuner_input()
-                if switched:
-                    await asyncio.sleep(2.0)
+                # The tuner input is selected at power-on time (see
+                # _vizio_switch_to_tuner_later) so presets stay snappy.
                 reached = await client.tune_to(rf)
             except VizioError as exc:
                 raise DispatchError(str(exc)) from exc
@@ -293,6 +299,22 @@ class Dispatcher:
 
     def _adb(self, tv: TV) -> AdbClient:
         return AdbClient(tv.url, self._adb_key_path, timeout=self._timeout)
+
+    async def _vizio_switch_to_tuner_later(self, tv: TV, *, delay: float = 10.0) -> None:
+        """Background task: after a Vizio wake, wait for the set to finish
+        booting (SmartCast splash takes ~6-10 sec) then drive the input
+        picker to the antenna tuner. Best-effort — swallow errors so a
+        TV that didn't actually wake (still off, network blip) doesn't
+        leave a crashed task behind."""
+        try:
+            await asyncio.sleep(delay)
+            token = self._pairings.get(tv.id).get("auth_token")
+            if not token:
+                return
+            client = VizioClient(tv.url, auth_token=token, timeout=self._timeout)
+            await client.select_tuner_input()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _host_from_url(url: str) -> str | None:
