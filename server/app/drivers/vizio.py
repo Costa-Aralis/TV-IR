@@ -312,7 +312,8 @@ class VizioClient:
                 return value
         return None
 
-    async def select_tuner_input(self) -> bool:
+    async def select_tuner_input(self, *, max_cycles: int = 8,
+                                  step_pause: float = 1.4) -> bool:
         """Switch to the antenna tuner input. Returns True if a switch was
         actually made; False if already on the tuner.
 
@@ -320,39 +321,28 @@ class VizioClient:
         tune_to() can't navigate the antenna channel list with the D-pad —
         the D-pad walks home-screen tiles instead. Switching to the tuner
         input first restores the in-tuner D-pad-walks-channels behavior.
+
+        Implementation: MODIFY current_input is rejected by V-series firmware
+        (that endpoint is for renaming, not switching). The reliable path is
+        the remote key INPUT_TOGGLE (CODESET 7 CODE 1), which cycles through
+        physical inputs and SmartCast Home. We send it once at a time and
+        read current_input back; stop the moment we see TV.
         """
-        tuner_value = await self._find_tuner_input_value()
-        if not tuner_value:
-            tuner_value = "TV"  # firmware-agnostic fallback
-        cur_data = await self._get("/menu_native/dynamic/tv_settings/devices/current_input")
-        cur_items = cur_data.get("ITEMS") or []
-        if not cur_items:
-            raise VizioError("current_input menu item not found")
-        cur_item = cur_items[0]
-        raw_cur = cur_item.get("VALUE")
-        current = raw_cur.get("NAME") if isinstance(raw_cur, dict) else (raw_cur or "")
-        if current == tuner_value:
+        import asyncio
+        tuner_value = await self._find_tuner_input_value() or "TV"
+        current = await self.get_current_input()
+        if current and current.upper() == tuner_value.upper():
             return False
-        # Mirror the shape we just read: V-series firmware that returns VALUE
-        # as a dict on GET also requires a dict on MODIFY, with NAME (and
-        # any METADATA we saw, preserved). Plain string was rejected with
-        # STATUS.RESULT=FAILURE.
-        if isinstance(raw_cur, dict):
-            new_value: Any = {**raw_cur, "NAME": tuner_value}
-        else:
-            new_value = tuner_value
-        body = {
-            "REQUEST": "MODIFY",
-            "VALUE": new_value,
-            "HASHVAL": cur_item.get("HASHVAL"),
-        }
-        result = await self._put(
-            "/menu_native/dynamic/tv_settings/devices/current_input", body
+        for _ in range(max_cycles):
+            await self.keypress(7, 1)  # INPUT_TOGGLE
+            await asyncio.sleep(step_pause)
+            current = await self.get_current_input()
+            if current and current.upper() == tuner_value.upper():
+                return True
+        raise VizioError(
+            f"could not reach tuner input after {max_cycles} cycles "
+            f"(last current={current!r}, looking for {tuner_value!r})"
         )
-        status = (result.get("STATUS") or {}).get("RESULT")
-        if status != "SUCCESS":
-            raise VizioError(f"select_tuner_input: {result}")
-        return True
 
     # ---- HTTP helpers ----
     async def _get(self, path: str) -> dict[str, Any]:
